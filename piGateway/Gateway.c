@@ -54,6 +54,20 @@ Modifications Needed:
 #include <pthread.h>
 #include <errno.h>
 
+
+#define RFM_FREQUENCY RF69_868MHZ
+
+#ifdef GATEWAY
+#define NODE_ID 1
+#define GATEWAY_ID 2
+#else
+#define NODE_ID 2
+#define GATEWAY_ID 1
+#elif
+
+#define NETWORK 100
+#define ENCRYPTION_KEY = "sampleEncryptKey"
+
 RFM69 *rfm69;
 
 typedef struct {		
@@ -190,24 +204,25 @@ int main(int argc, char* argv[]) {
 	if (!connect(m)) { die("connect() failure\n"); }
 
 	//RFM69 ---------------------------
-	theConfig.networkId = 101;
-	theConfig.nodeId = 1;
-	theConfig.frequency = RF69_433MHZ;
+	theConfig.networkId = NETWORK_ID;
+	theConfig.nodeId = NODE_ID;
+	theConfig.frequency = RFM_FREQUENCY;
 	theConfig.keyLength = 16;
-	memcpy(theConfig.key, "xxxxxxxxxxxxxxxx", 16);
-	theConfig.isRFM69HW = true;
-	theConfig.promiscuousMode = true;
+	memcpy(theConfig.key, ENCRYPTION_KEY, 16);
+	theConfig.isRFM69HW = false;
+	theConfig.promiscuousMode = false;
 	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
 
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
 	initRfm(rfm69);
-
-	// Mosquitto subscription ---------
-	char subsciptionMask[128];
-	sprintf(subsciptionMask, "%s/%03d/#", MQTT_ROOT, theConfig.networkId);
-	LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
-	mosquitto_subscribe(m, NULL, subsciptionMask, 0);
+	
+	//
+	// // Mosquitto subscription ---------
+	// char subsciptionMask[128];
+	// sprintf(subsciptionMask, "%s/%03d/#", MQTT_ROOT, theConfig.networkId);
+	// LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
+	// mosquitto_subscribe(m, NULL, subsciptionMask, 0);
 	
 	LOG("setup complete\n");
 	return run_loop(m);
@@ -218,17 +233,17 @@ static int run_loop(struct mosquitto *m) {
 	int res;
 	long lastMess; 
 	for (;;) {
-		res = mosquitto_loop(m, 10, 1);
+		// res = mosquitto_loop(m, 10, 1);
 
 		// No messages have been received withing MESSAGE_WATCHDOG interval
-		if (millis() > lastMess + theConfig.messageWatchdogDelay) {
-			LOG("=== Message WatchDog ===\n");
-			theStats.messageWatchdog++;
-			// re-initialise the radio
-			initRfm(rfm69);
-			// reset watchdog
-			lastMess = millis();
-		}
+		// if (millis() > lastMess + theConfig.messageWatchdogDelay) {
+		// 	LOG("=== Message WatchDog ===\n");
+		// 	theStats.messageWatchdog++;
+		// 	// re-initialise the radio
+		// 	initRfm(rfm69);
+		// 	// reset watchdog
+		// 	lastMess = millis();
+		// }
 		
 		if (rfm69->receiveDone()) {
 			// record last message received time - to compute radio watchdog
@@ -301,32 +316,13 @@ static int run_loop(struct mosquitto *m) {
 				}
 			}  
 		} //end if radio.receive
-
-		if (sendMQTT == 1) {
-			//send var1_usl
-			MQTTSendULong(m, sensorNode.nodeID, sensorNode.sensorID, 1, sensorNode.var1_usl);
-
-			//send var2_float
-			MQTTSendFloat(m, sensorNode.nodeID, sensorNode.sensorID, 2, sensorNode.var2_float);
-
-			//send var3_float
-			MQTTSendFloat(m, sensorNode.nodeID, sensorNode.sensorID, 3, sensorNode.var3_float);
-
-			//send var4_int, RSSI
-			MQTTSendInt(m, sensorNode.nodeID, sensorNode.sensorID, 4, sensorNode.var4_int);
-
-			sendMQTT = 0;
-		}//end if sendMQTT
+		LOG("Waiting then sending...");
+		usleep(1000*1000);
+		LOG("SENDING...");
+		send_message();
+		
 	}
 
-	mosquitto_destroy(m);
-	(void)mosquitto_lib_cleanup();
-
-	if (res == MOSQ_ERR_SUCCESS) {
-		return 0;
-	} else {
-		return 1;
-	}
 }
 
 static int initRfm(RFM69 *rfm) {
@@ -429,7 +425,7 @@ static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int v
 	sprintf(buff_message, "%u", val);
 //	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
-	}
+}
 
 static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val) {
 	char buff_topic[6];
@@ -463,6 +459,34 @@ static void on_connect(struct mosquitto *m, void *udata, int res) {
 	} else {
 		die("connection refused\n");
 	}
+}
+
+static void send_message() {
+	Payload data;
+	uint8_t network;
+	data.nodeID = GATEWAY_ID;
+	data.sensorID = 10;
+	data.var1_usl = 1000;
+	data.var2_float = 99.0;
+	data.var3_float = 101.0;
+	
+	LOG("Will Send message to Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
+		data.nodeID,
+		data.sensorID,
+		data.var1_usl,
+		data.var2_float,
+		data.var3_float
+	);
+
+	if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data))) {
+		LOG("Message sent to node %d ACK", data.nodeID);
+		theStats.ackReceived++;
+	}
+	else {
+		LOG("Message sent to node %d NAK", data.nodeID);
+		theStats.ackMissed++;
+	}
+	
 }
 
 /* Handle a message that just arrived via one of the subscriptions. */
