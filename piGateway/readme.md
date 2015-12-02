@@ -1,3 +1,25 @@
+Send Receive Test
+=================
+
+Below the original readme. I have changed the Gateway.c code so it doesn't talk to mosquitto any more and will just send and receive packets for testing out my RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
+
+On the first node compile with 
+```
+g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
+```
+
+On the second node add:
+```
+g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG -DGATEWAY
+```
+
+
+
+Original Readme
+===============
+
+
+
 This repo contain a port of LowPowerLab RFM69 library, initially targeted at Arduino, to Raspberry Pi.
 The Gateway code is a 1:1 replacement from Eric Tsai one to be run dirrectly on Raspberry, removing the need of a dedicated Arduino with Ethernet shield
 
