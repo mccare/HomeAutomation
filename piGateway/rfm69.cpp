@@ -429,9 +429,9 @@ void RFM69::interruptHandler() {
  //pinMode(4, OUTPUT);
   //digitalWrite(4, 1);
   delayMicroseconds(MICROSLEEP_LENGTH);
-  if (_mode == RF69_MODE_RX )//&& (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY))
+  if (_mode == RF69_MODE_RX && (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY))
   {
-	fprintf(stderr, "Reading data from SPI");
+	fprintf(stderr, "Reading data from SPI\n");
     //RSSI = readRSSI();
     setMode(RF69_MODE_STANDBY);
 #ifdef RASPBERRY
@@ -498,7 +498,12 @@ void RFM69::interruptHandler() {
     unselect();
     setMode(RF69_MODE_RX);
 	fprintf(stderr, "Done reading from chip payload len %d Data len\n", PAYLOADLEN, DATALEN);
+  } 
+  	else {
+		  if (_mode == RF69_MODE_RX) 
+		    fprintf(stderr, "ERROR: out of spec: input is ready by interrupt but PAYLOADREADY IRQ register not set");
   }
+	  
   RSSI = readRSSI();
   //digitalWrite(4, 0);
 

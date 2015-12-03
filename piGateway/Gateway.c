@@ -124,9 +124,10 @@ int main(int argc, char* argv[]) {
 	return run_loop();
 }
 
+int counter = 0;
+
 /* Loop until it is explicitly halted or the network is lost, then clean up. */
 static int run_loop() {
-	int counter = 0;
 	for (;;) {
 		
 		if (rfm69->receiveDone()) {
@@ -170,7 +171,7 @@ static int run_loop() {
 		
 		counter = counter + 1;
 #ifndef GATEWAY
-		if (counter % 40 == 0) {
+		if (counter % 20 == 0) {
 			LOG("Sending test message\n");
 			send_message();
 		} else {
@@ -292,6 +293,5 @@ static void send_message() {
 	else {
 		LOG("\n\nERROR: essage sent to node %d NAK \n\n", data.nodeID);
 	}
-	
 }
 
