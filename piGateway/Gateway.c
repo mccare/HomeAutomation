@@ -53,11 +53,11 @@ Modifications Needed:
 #define RFM_FREQUENCY RF69_868MHZ
 
 #ifdef GATEWAY
-#define NODE_ID 1
-#define GATEWAY_ID 2
-#else
-#define NODE_ID 2
+#define NODE_ID 100
 #define GATEWAY_ID 1
+#else
+#define NODE_ID 1
+#define GATEWAY_ID 100
 #endif
 
 #define NETWORK_ID 100
@@ -142,7 +142,7 @@ static int run_loop() {
 			uint8_t ACK_REQUESTED = rfm69->ACK_REQUESTED;
 			uint8_t ACK_RECEIVED = rfm69->ACK_RECEIVED; // should be polled immediately after sending a packet with ACK request
 			int16_t RSSI = rfm69->RSSI; // most accurate RSSI during reception (closest to the reception)
-
+			LOG("ACK REQUESTED: %d, targetID %d, theConfig.nodeId %d\n", ACK_REQUESTED, targetID, theConfig.nodeId);
 			if (ACK_REQUESTED  && targetID == theConfig.nodeId) {
 				// When a node requests an ACK, respond to the ACK
 				// but only if the Node ID is correct
@@ -175,9 +175,6 @@ static int run_loop() {
 			send_message();
 		} else {
 			usleep(100*1000);
-		}
-		if (counter % 100 == 0) {
-			rfm69->readAllRegs();
 		}
 #endif
 			
@@ -271,6 +268,8 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 
 
 static void send_message() {
+	uint8_t retries = 0;
+	uint8_t wait_time = 255;
 	Payload data;
 	uint8_t network;
 	data.nodeID = GATEWAY_ID;
@@ -287,11 +286,11 @@ static void send_message() {
 		data.var3_float
 	);
 
-	if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data))) {
-		LOG("Message sent to node %d ACK\n", data.nodeID);
+	if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data), retries, wait_time)) {
+		LOG("\n\nOK: Message sent to node %d ACK\n\n", data.nodeID);
 	}
 	else {
-		LOG("Message sent to node %d NAK\n", data.nodeID);
+		LOG("\n\nERROR: essage sent to node %d NAK \n\n", data.nodeID);
 	}
 	
 }

@@ -38,7 +38,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <unistd.h>	//usleep
 #define MICROSLEEP_LENGTH 15
 
 #else
@@ -231,20 +230,25 @@ void RFM69::setMode(uint8_t newMode)
 
   switch (newMode) {
     case RF69_MODE_TX:
+//		fprintf(stderr, "RF69_MODE_TX");
       writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | RF_OPMODE_TRANSMITTER);
       if (_isRFM69HW) setHighPowerRegs(true);
       break;
     case RF69_MODE_RX:
+//	fprintf(stderr, "RF69_MODE_RX");
       writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | RF_OPMODE_RECEIVER);
       if (_isRFM69HW) setHighPowerRegs(false);
       break;
     case RF69_MODE_SYNTH:
+//	fprintf(stderr, "RF69_MODE_SYNTH");
       writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | RF_OPMODE_SYNTHESIZER);
       break;
     case RF69_MODE_STANDBY:
+//	fprintf(stderr, "RF69_MODE_STANDBY");
       writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | RF_OPMODE_STANDBY);
       break;
     case RF69_MODE_SLEEP:
+	//fprintf(stderr, "RF69_MODE_SLEEP");
       writeReg(REG_OPMODE, (readReg(REG_OPMODE) & 0xE3) | RF_OPMODE_SLEEP);
       break;
     default:
@@ -292,7 +296,7 @@ void RFM69::setPowerLevel(uint8_t powerLevel)
 
 bool RFM69::canSend()
 {
-// printf("mode %d, payload %d, rssi %d %d\n", _mode, PAYLOADLEN, readRSSI(), CSMA_LIMIT);
+	 fprintf(stderr, "mode %d, payload %d, rssi %d %d\n", _mode, PAYLOADLEN, readRSSI(), CSMA_LIMIT);
   if (_mode == RF69_MODE_RX && PAYLOADLEN == 0 && readRSSI() < CSMA_LIMIT) // if signal stronger than -100dBm is detected assume channel activity
   {
     setMode(RF69_MODE_STANDBY);
@@ -348,11 +352,12 @@ bool RFM69::ACKRequested() {
 
 // should be called immediately after reception in case sender wants ACK
 void RFM69::sendACK(const void* buffer, uint8_t bufferSize) {
+  fprintf(stderr, "\nSENDING ACK\n");
   uint8_t sender = SENDERID;
   int16_t _RSSI = RSSI; // save payload received RSSI value
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   uint32_t now = millis();
-  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    usleep(MICROSLEEP_LENGTH); /* printf(".");*/ receiveDone();}
+  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    delayMicroseconds(MICROSLEEP_LENGTH); printf("."); receiveDone();}
   sendFrame(sender, buffer, bufferSize, false, true);
   RSSI = _RSSI; // restore payload RSSI
 }
@@ -363,6 +368,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   setMode(RF69_MODE_STANDBY); // turn off receiver to prevent reception while filling fifo
   while ((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00); // wait for ModeReady
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_00); // DIO0 is "Packet Sent"
+  fprintf(stderr, "DIO mapping set to 00 (PACKET SENT)");
   if (bufferSize > RF69_MAX_DATA_LEN) bufferSize = RF69_MAX_DATA_LEN;
 
   // control byte
@@ -405,6 +411,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   setMode(RF69_MODE_TX);
   uint32_t txStart = millis();
   while (digitalRead(_interruptPin) == 0 && millis() - txStart < RF69_TX_LIMIT_MS); // wait for DIO0 to turn HIGH signalling transmission finish
+  fprintf(stderr, "Send time is %d max time is %d\n", millis() - txStart, RF69_TX_LIMIT_MS);
   //while (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PACKETSENT == 0x00); // wait for ModeReady
   setMode(RF69_MODE_STANDBY);
 }
@@ -416,13 +423,15 @@ void RFM69::interruptHandler() {
   unsigned char thedata[67];
   char i;
   for(i = 0; i < 67; i++) thedata[i] = 0;
-//  printf("interruptHandler %d\n", intCount);
+  fprintf(stderr, "interruptHandler %d\n", intCount);
 #endif
  
  //pinMode(4, OUTPUT);
   //digitalWrite(4, 1);
-  if (_mode == RF69_MODE_RX && (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY))
+  delayMicroseconds(MICROSLEEP_LENGTH);
+  if (_mode == RF69_MODE_RX )//&& (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY))
   {
+	fprintf(stderr, "Reading data from SPI");
     //RSSI = readRSSI();
     setMode(RF69_MODE_STANDBY);
 #ifdef RASPBERRY
@@ -430,7 +439,7 @@ void RFM69::interruptHandler() {
     thedata[1] = 0; // PAYLOADLEN
     thedata[2] = 0; //  TargetID
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 3);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
 
     PAYLOADLEN = thedata[1];
     PAYLOADLEN = PAYLOADLEN > 66 ? 66 : PAYLOADLEN; // precaution
@@ -445,6 +454,7 @@ void RFM69::interruptHandler() {
     if(!(_promiscuousMode || TARGETID == _address || TARGETID == RF69_BROADCAST_ADDR) // match this node's address, or broadcast address or anything in promiscuous mode
        || PAYLOADLEN < 3) // address situation could receive packets that are malformed and don't fit this libraries extra fields
     {
+  	  fprintf(stderr, "RECEIVE Bailing out: Target %d address %d payload len %d", TARGETID, _address, PAYLOADLEN);
       PAYLOADLEN = 0;
       unselect();
       receiveBegin();
@@ -487,6 +497,7 @@ void RFM69::interruptHandler() {
     if (DATALEN < RF69_MAX_DATA_LEN) DATA[DATALEN] = 0; // add null at end of string
     unselect();
     setMode(RF69_MODE_RX);
+	fprintf(stderr, "Done reading from chip payload len %d Data len\n", PAYLOADLEN, DATALEN);
   }
   RSSI = readRSSI();
   //digitalWrite(4, 0);
@@ -495,14 +506,14 @@ void RFM69::interruptHandler() {
 
 // internal function
 void RFM69::isr0() { 
-//	printf (" Isr0 %d ", intCount);
+	//fprintf(stderr,  " Isr0 %d ", intCount);
 	if (intCount++ > 0) {
-//		printf("+++***==== Dual Interupt handling ====*** %d+++\n", intCount);
+		fprintf(stderr, "+++***==== Dual Interupt handling ====*** %d+++\n", intCount);
 		}
 	else
 		selfPointer->interruptHandler(); 
 	intCount--;
-//	printf(" Isr0 exit ");
+//	fprintf(stderr, " Isr0 exit ");
 	}
 
 // internal function
@@ -517,6 +528,8 @@ void RFM69::receiveBegin() {
   if (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY)
     writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_01); // set DIO0 to "PAYLOADREADY" in receive mode
+  fprintf(stderr, "DIO mapping set to 01 (Payload Ready)");
+  
   setMode(RF69_MODE_RX);
 }
 
@@ -529,6 +542,7 @@ bool RFM69::receiveDone() {
 #endif
   if (_mode == RF69_MODE_RX && PAYLOADLEN > 0)
   {
+	fprintf(stderr, "Detected something to be processed\n");
     setMode(RF69_MODE_STANDBY); // enables interrupts
     return true;
   }
@@ -560,7 +574,7 @@ void RFM69::encrypt(const char* key) {
     }
 
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 17);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
   }
 
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFE) | (key ? 1 : 0));
@@ -600,9 +614,9 @@ uint8_t RFM69::readReg(uint8_t addr)
   thedata[1] = 0;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 
-//printf("%x %x\n", addr, thedata[1]);
+//  fprintf(stderr, "%x %x\n", addr, thedata[1]);
   return thedata[1];
 #else
   select();
@@ -616,13 +630,13 @@ uint8_t RFM69::readReg(uint8_t addr)
 void RFM69::writeReg(uint8_t addr, uint8_t value)
 {
 #if RASPBERRY
-//printf("%x %x\n", addr, value);
+//	fprintf(stderr, "%x %x\n", addr, value);
   unsigned char thedata[2];
   thedata[0] = addr | 0x80;
   thedata[1] = value;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 #else
   select();
   SPI.transfer(addr | 0x80);
@@ -633,7 +647,7 @@ void RFM69::writeReg(uint8_t addr, uint8_t value)
 
 // select the RFM69 transceiver (save SPI settings, set CS low)
 void RFM69::select() {
-//  printf(" diable Int ");
+	 fprintf(stderr, " disable Int ");
 #ifndef RASPBERRY
   noInterrupts();
   // save current SPI settings
@@ -656,7 +670,7 @@ void RFM69::unselect() {
   SPSR = _SPSR;
   interrupts();
 #endif
-//  printf(" EI ");
+  fprintf(stderr, " EI ");
 }
 
 // true  = disable filtering to capture all frames on network
