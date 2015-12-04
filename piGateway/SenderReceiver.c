@@ -1,13 +1,14 @@
 /*
-RFM69 Sender Reciever Test
-by Alexandre Bouillot
-adapted for a simple send/receive by Christian van der Leeden
+RFM69 Sender Reciever 
+adapted from Gateway.c from Alexandre Bouillot by Christian van der Leeden
 
 License:  CC-BY-SA, https://creativecommons.org/licenses/by-sa/2.0/
 Date:  2015-12-03
 File: SenderReciever.c
 
+SETUP and usage:
 Define the RFM Frequency of the chip used, your network id (pick one) and the encryption key 
+see readme for more info
 */
 
 //general --------------------------------
@@ -26,6 +27,7 @@ Define the RFM Frequency of the chip used, your network id (pick one) and the en
 
 //RFM69  ----------------------------------
 #include "rfm69.h"
+#include "transport.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -48,6 +50,7 @@ RFM69 *rfm69;
 typedef struct {
 	uint8_t networkId;
 	uint8_t nodeId;
+  uint8_t gatewayId; // gatewayID needed for sending
 	uint8_t frequency; // RF69_433MHZ RF69_868MHZ RF69_915MHZ
 	uint8_t keyLength; // set to 0 for no encryption
 	char key[16];
@@ -59,27 +62,23 @@ Config theConfig;
 
 typedef struct {		
 	short           nodeID; 
-	short			sensorID;
+	short			      sensorID;
 	unsigned long   var1_usl; 
 	float           var2_float; 
-	float			var3_float;	
+	float           var3_float;	
 } 
 Payload;
 Payload theData;
 
 
+static long current_time_millis();
 static void die(const char *msg);
-static long millis(void);
 static void hexDump (char *desc, void *addr, int len, int bloc);
 
 static int initRfm(RFM69 *rfm);
-static void send_message();
+static void send_message(struct device_reading reading);
 static int run_loop();
 
-static int RECEIVER_ID = 10;
-static int SENDER_ID = 11;
-static int NODE_ID;
-static int GATEWAY_ID;
 
 enum Mode {
   sender,
@@ -87,22 +86,29 @@ enum Mode {
 }; 
 enum Mode mode;
 
+static long current_time_millis(void) {
+	struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    return ((tv.tv_sec) * 1000 + tv.tv_usec/1000.0) + 0.5;
+}
 
 static void uso(void) {
-	fprintf(stderr, "Use:\n -s for sender, -r for receiver \n");
+	fprintf(stderr, "Use:\nSender: -s <my node id> <destination id>\nReceiver:  -r <my node id> \n");
+  fprintf(stderr, "Nodeid is an unsigned 8 bit integer (1-255) and must be unique on your network");
 	exit(1);
 }
 
 int main(int argc, char* argv[]) {
-	if (argc != 2) uso();
+	if (argc < 3) uso();
   if (strcmp(argv[1], "-r") == 0 ) {
     mode = receiver;
-    NODE_ID = RECEIVER_ID;
-    GATEWAY_ID = SENDER_ID; // not really needed...
-  } else if (strcmp(argv[1], "-s") == 0) {
+    theConfig.nodeId = atoi(argv[2]);
+  } else if (strcmp(argv[1], "-s") == 0 && argc == 4) {
     mode = sender;
-    NODE_ID = SENDER_ID;
-    GATEWAY_ID = RECEIVER_ID;
+    theConfig.nodeId = atoi(argv[2]);
+    theConfig.gatewayId =  atoi(argv[3]);
   } else {
     fprintf(stderr, "invalid arguments");
     uso();
@@ -111,13 +117,16 @@ int main(int argc, char* argv[]) {
 
 	//RFM69 ---------------------------
 	theConfig.networkId = NETWORK_ID;
-	theConfig.nodeId = NODE_ID;
 	theConfig.frequency = RFM_FREQUENCY;
 	theConfig.keyLength = 16;
 	memcpy(theConfig.key, ENCRYPTION_KEY, 16);
 	theConfig.isRFM69HW = RFM69H;
 	theConfig.promiscuousMode = true;
-	LOG("NETWORK %d NODE_ID %d FREQUENCY %d\n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
+  if (mode == sender) {
+    LOG("SENDING: NETWORK %d NODE_ID %d FREQUENCY %d to GATEWAY_ID %d", theConfig.networkId, theConfig.nodeId, theConfig.frequency, theConfig.gatewayId);
+  } else {
+    LOG("RECEIVING: NETWORK %d NODE_ID %d FREQUENCY %d ", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
+  }
 	
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
@@ -131,6 +140,7 @@ int counter = 0;
 
 /* Loop until it is explicitly halted or the network is lost, then clean up. */
 static int run_loop() {
+  setup_pipe();
 	for (;;) {
 		if (mode == receiver && rfm69->receiveDone()) {
 			LOG("Received something...\n");
@@ -172,12 +182,16 @@ static int run_loop() {
 		} //end if radio.receive
 		
     if (mode == sender) {
-  		counter = counter + 1;
-  		if (counter % 20 == 0) {
-  			LOG("Sending test message\n");
-  			send_message();
+      struct device_reading reading;
+      reading = read_from_pipe(5000);
+      if (reading.device_id > 0) {
+        LOG("Sending test message from device_id %i value %f \n", reading.device_id, reading.value); 
+  			send_message(reading);
   		} else {
-  			usleep(100*1000);
+        counter += 1;
+        if (counter % 1000 == 0) {
+          LOG("Nothing on the named pipe (FIFO)...\n");
+        }
   		}
     } 
 		
@@ -201,13 +215,6 @@ static void die(const char *msg) {
 	exit(1);
 }
 
-static long millis(void) {
-	struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-
-    return ((tv.tv_sec) * 1000 + tv.tv_usec/1000.0) + 0.5;
-	}
 
 	
 /* Binary Dump utility function */
@@ -268,17 +275,16 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 }
 
 
-
-static void send_message() {
+static void send_message(struct device_reading reading) {
 	uint8_t retries = 0;
 	uint8_t wait_time = 255;
 	Payload data;
 	uint8_t network;
-	data.nodeID = GATEWAY_ID;
-	data.sensorID = 10;
-	data.var1_usl = 1000;
-	data.var2_float = 99.0;
-	data.var3_float = 101.0;
+	data.nodeID = theConfig.gatewayId;
+	data.sensorID = reading.device_id;
+	data.var1_usl = current_time_millis();
+	data.var2_float = reading.value;
+	data.var3_float = 0;
 	
 	LOG("Will Send message to Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 		data.nodeID,
