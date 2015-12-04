@@ -40,8 +40,8 @@
 #define RF69_IRQ_PIN          6
 #define RF69_IRQ_NUM          0
  
-//#define SPI_SPEED 500000
-#define SPI_SPEED 2000000
+#define SPI_SPEED 500000
+//#define SPI_SPEED 2000000
 //#define SPI_SPEED 3000000
 #define SPI_DEVICE 0
 #else

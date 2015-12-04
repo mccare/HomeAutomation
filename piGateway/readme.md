@@ -1,22 +1,52 @@
-Send Receive Test
-=================
+Send Receive (without mosquitto)
+===============================
 
-Below the original readme. I have changed the Gateway.c code so it doesn't talk to mosquitto any more and will just send and receive packets for testing out my RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
+I have changed the Gateway.c code so it doesn't talk to mosquitto any more and will just send and receive packets for testing out my RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
 
-On the first node compile with 
+In further development the sender part can now be used to create sensor nodes on rasperry pi. Measuring scripts can write a line into the named pipe. See transport.c for configuration
+
+###### Compile and usage
+
+Edit the SendeReceiver.c to set your frequencye, encryption key and network id
+
 ```
-g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
+make SenderReceiver
 ```
 
-On the second node add:
+###### Running it
+
+Run one sending node: (will send as node_id 10 and to node_id 11)
 ```
-g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG -DGATEWAY
+sudo ./SenderReceiver -s 10 11
+```
+
+on receiving node: (will listen as node_id 11)
+```
+sudo ./SenderReceiver -r 11
+```
+
+To send packets please echo 
+```
+echo "DEVICE_ID:10:VALUE:10.0" > /tmp/SenderReceiverIO.named_pipe
 ```
 
 
 
-Original Readme
-===============
+
+
+
+
+ * Sender mode:
+ *  
+ *   when run with the "-s" flag (sender) a named pipe in /tmp directory will be created
+ *   write DEVICE_ID:<int>:VALUE:<float>  to the named pipe and a message will be sent out
+ * 
+ * Receiver mode:
+ *   
+ *  this is more for testing
+
+Original Readme (Gateway)
+==========================
 
 
 
