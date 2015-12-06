@@ -18,6 +18,10 @@ Modifications Needed:
 
 //general --------------------------------
 #define SERIAL_BAUD   115200
+#ifdef DAEMON
+#define LOG(...) do { syslog(LOG_INFO, __VA_ARGS__); } while (0)
+#define LOG_E(...) do { syslog(LOG_ERR, __VA_ARGS__); } while (0)
+#else
 #ifdef DEBUG
 #define DEBUG1(expression)  fprintf(stderr, expression)
 #define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
@@ -30,6 +34,7 @@ Modifications Needed:
 #define DEBUGLN1(expression)
 #define LOG(...)
 #define LOG_E(...)
+#endif
 #endif
 
 //RFM69  ----------------------------------
@@ -49,21 +54,21 @@ Modifications Needed:
 #include <pthread.h>
 #include <errno.h>
 
-
-#define RFM_FREQUENCY RF69_868MHZ
-
-#ifdef GATEWAY
-#define NODE_ID 100
-#define GATEWAY_ID 1
-#else
-#define NODE_ID 1
-#define GATEWAY_ID 100
-#endif
-
-#define NETWORK_ID 100
-#define ENCRYPTION_KEY  "sampleEncryptKey"
-
 RFM69 *rfm69;
+
+typedef struct {		
+	unsigned long messageWatchdog;
+	unsigned long messageSent;
+	unsigned long messageReceived;
+	unsigned long ackRequested;
+	
+	unsigned long ackReceived;
+	unsigned long ackMissed;
+	
+	unsigned long ackCount;
+} 
+Stats;
+Stats theStats;
 
 typedef struct {
 	uint8_t networkId;
@@ -73,9 +78,26 @@ typedef struct {
 	char key[16];
 	bool isRFM69HW;
 	bool promiscuousMode;
-}
+	unsigned long messageWatchdogDelay; // maximum time between two message before restarting radio module
+	}
 Config;
 Config theConfig;
+
+// Mosquitto---------------
+#include <mosquitto.h>
+
+/* How many seconds the broker should wait between sending out
+* keep-alive messages. */
+#define KEEPALIVE_SECONDS 60
+/* Hostname and port for the MQTT broker. */
+#define BROKER_HOSTNAME "localhost"
+#define BROKER_PORT 1883
+
+#define MQTT_ROOT "RFM"
+#define MQTT_CLIENT_ID "arduinoClient"
+#define MQTT_RETRY 500
+
+int sendMQTT = 0;
 
 typedef struct {		
 	short           nodeID; 
@@ -87,15 +109,30 @@ typedef struct {
 Payload;
 Payload theData;
 
+typedef struct {
+	short           nodeID;
+	short			sensorID;		
+	unsigned long   var1_usl;
+	float           var2_float;
+	float			var3_float;		//
+	int             var4_int;
+}
+SensorNode;
+SensorNode sensorNode;
 
 static void die(const char *msg);
 static long millis(void);
 static void hexDump (char *desc, void *addr, int len, int bloc);
 
 static int initRfm(RFM69 *rfm);
-static void send_message();
-static int run_loop();
 
+static bool set_callbacks(struct mosquitto *m);
+static bool connect(struct mosquitto *m);
+static int run_loop(struct mosquitto *m);
+
+static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val);
+static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int var, unsigned long val);
+static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val);
 
 static void uso(void) {
 	fprintf(stderr, "Use:\n Simply use it without args :D\n");
@@ -105,33 +142,99 @@ static void uso(void) {
 int main(int argc, char* argv[]) {
 	if (argc != 1) uso();
 
+#ifdef DAEMON
+	//Adapted from http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
+	pid_t pid, sid;
+
+	openlog("Gatewayd", LOG_PID, LOG_USER);
+
+	pid = fork();
+	if (pid < 0) {
+		LOG_E("fork failed");
+		exit(EXIT_FAILURE);
+	}
+	/* If we got a good PID, then
+		 we can exit the parent process. */
+	if (pid > 0) {
+		LOG("Child spawned, pid %d\n", pid);
+		exit(EXIT_SUCCESS);
+	}
+
+	/* Change the file mode mask */
+	umask(0);
+
+	/* Create a new SID for the child process */
+	sid = setsid();
+	if (sid < 0) {
+		LOG_E("setsid failed");
+		exit(EXIT_FAILURE);
+	}
+        
+	/* Change the current working directory */
+	if ((chdir("/")) < 0) {
+	  LOG_E("chdir failed");
+	  exit(EXIT_FAILURE);
+	}
+        
+	/* Close out the standard file descriptors */
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+#endif //DAEMON
+
+	// Mosquitto ----------------------
+	struct mosquitto *m = mosquitto_new(MQTT_CLIENT_ID, true, null);
+	if (m == NULL) { die("init() failure\n"); }
+
+	if (!set_callbacks(m)) { die("set_callbacks() failure\n"); }
+	if (!connect(m)) { die("connect() failure\n"); }
 
 	//RFM69 ---------------------------
-	theConfig.networkId = NETWORK_ID;
-	theConfig.nodeId = NODE_ID;
-	theConfig.frequency = RFM_FREQUENCY;
+	theConfig.networkId = 101;
+	theConfig.nodeId = 1;
+	theConfig.frequency = RF69_433MHZ;
 	theConfig.keyLength = 16;
-	memcpy(theConfig.key, ENCRYPTION_KEY, 16);
-	theConfig.isRFM69HW = false;
+	memcpy(theConfig.key, "xxxxxxxxxxxxxxxx", 16);
+	theConfig.isRFM69HW = true;
 	theConfig.promiscuousMode = true;
-	LOG("NETWORK %d NODE_ID %d FREQUENCY %d\n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
-	
+	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
+
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
 	initRfm(rfm69);
+
+	// Mosquitto subscription ---------
+	char subsciptionMask[128];
+	sprintf(subsciptionMask, "%s/%03d/#", MQTT_ROOT, theConfig.networkId);
+	LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
+	mosquitto_subscribe(m, NULL, subsciptionMask, 0);
 	
 	LOG("setup complete\n");
-	return run_loop();
-}
-
-int counter = 0;
+	return run_loop(m);
+}  // end of setup
 
 /* Loop until it is explicitly halted or the network is lost, then clean up. */
-static int run_loop() {
+static int run_loop(struct mosquitto *m) {
+	int res;
+	long lastMess; 
 	for (;;) {
+		res = mosquitto_loop(m, 10, 1);
+
+		// No messages have been received withing MESSAGE_WATCHDOG interval
+		if (millis() > lastMess + theConfig.messageWatchdogDelay) {
+			LOG("=== Message WatchDog ===\n");
+			theStats.messageWatchdog++;
+			// re-initialise the radio
+			initRfm(rfm69);
+			// reset watchdog
+			lastMess = millis();
+		}
 		
 		if (rfm69->receiveDone()) {
-			LOG("Received something...\n");
+			// record last message received time - to compute radio watchdog
+			lastMess = millis();
+			theStats.messageReceived++;
+			
 			// store the received data localy, so they can be overwited
 			// This will allow to send ACK immediately after
 			uint8_t data[RF69_MAX_DATA_LEN]; // recv/xmit buf, including header & crc bytes
@@ -143,11 +246,28 @@ static int run_loop() {
 			uint8_t ACK_REQUESTED = rfm69->ACK_REQUESTED;
 			uint8_t ACK_RECEIVED = rfm69->ACK_RECEIVED; // should be polled immediately after sending a packet with ACK request
 			int16_t RSSI = rfm69->RSSI; // most accurate RSSI during reception (closest to the reception)
-			LOG("ACK REQUESTED: %d, targetID %d, theConfig.nodeId %d\n", ACK_REQUESTED, targetID, theConfig.nodeId);
+
 			if (ACK_REQUESTED  && targetID == theConfig.nodeId) {
 				// When a node requests an ACK, respond to the ACK
 				// but only if the Node ID is correct
+				theStats.ackRequested++;
 				rfm69->sendACK();
+				
+				if (theStats.ackCount++%3==0) {
+					// and also send a packet requesting an ACK (every 3rd one only)
+					// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
+
+					usleep(3000);  //need this when sending right after reception .. ?
+					theStats.messageSent++;
+					if (rfm69->sendWithRetry(theNodeID, "ACK TEST", 8)) { // 3 retry, over 200ms delay each
+						theStats.ackReceived++;
+						LOG("Pinging node %d - ACK - ok!", theNodeID);
+					}
+					else {
+						theStats.ackMissed++;
+						LOG("Pinging node %d - ACK - nothing!", theNodeID);
+					}
+				}
 			}//end if radio.ACK_REQESTED
 	
 			LOG("[%d] to [%d] ", theNodeID, targetID);
@@ -158,30 +278,55 @@ static int run_loop() {
 			} else {
 				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
 
+				//save it for mosquitto:
+				sensorNode.nodeID = theData.nodeID;
+				sensorNode.sensorID = theData.sensorID;
+				sensorNode.var1_usl = theData.var1_usl;
+				sensorNode.var2_float = theData.var2_float;
+				sensorNode.var3_float = theData.var3_float;
+				sensorNode.var4_int = RSSI;
+
 				LOG("Received Node ID = %d Device ID = %d Time = %d  RSSI = %d var2 = %f var3 = %f\n",
-					theData.nodeID,
-					theData.sensorID,
-					theData.var1_usl,
-					RSSI,
-					theData.var2_float,
-					theData.var3_float
+					sensorNode.nodeID,
+					sensorNode.sensorID,
+					sensorNode.var1_usl,
+					sensorNode.var4_int,
+					sensorNode.var2_float,
+					sensorNode.var3_float
 				);
+				if (sensorNode.nodeID == theNodeID)
+					sendMQTT = 1;
+				else {
+					hexDump(NULL, data, dataLength, 16);
+				}
 			}  
 		} //end if radio.receive
-		
-		counter = counter + 1;
-#ifndef GATEWAY
-		if (counter % 20 == 0) {
-			LOG("Sending test message\n");
-			send_message();
-		} else {
-			usleep(100*1000);
-		}
-#endif
-			
-		
+
+		if (sendMQTT == 1) {
+			//send var1_usl
+			MQTTSendULong(m, sensorNode.nodeID, sensorNode.sensorID, 1, sensorNode.var1_usl);
+
+			//send var2_float
+			MQTTSendFloat(m, sensorNode.nodeID, sensorNode.sensorID, 2, sensorNode.var2_float);
+
+			//send var3_float
+			MQTTSendFloat(m, sensorNode.nodeID, sensorNode.sensorID, 3, sensorNode.var3_float);
+
+			//send var4_int, RSSI
+			MQTTSendInt(m, sensorNode.nodeID, sensorNode.sensorID, 4, sensorNode.var4_int);
+
+			sendMQTT = 0;
+		}//end if sendMQTT
 	}
 
+	mosquitto_destroy(m);
+	(void)mosquitto_lib_cleanup();
+
+	if (res == MOSQ_ERR_SUCCESS) {
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
 static int initRfm(RFM69 *rfm) {
@@ -266,32 +411,122 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 	while (line * bloc < len);
 }
 
+static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val) {
+	char buff_topic[6];
+	char buff_message[7];
+
+	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	sprintf(buff_message, "%04d%", val);
+//	LOG("%s %s", buff_topic, buff_message);
+	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
+}
+
+static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int var, unsigned long val) {
+	char buff_topic[6];
+	char buff_message[12];
+
+	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	sprintf(buff_message, "%u", val);
+//	LOG("%s %s", buff_topic, buff_message);
+	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
+	}
+
+static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val) {
+	char buff_topic[6];
+	char buff_message[12];
+
+	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	snprintf(buff_message, 12, "%f", val);
+//	LOG("%s %s", buff_topic, buff_message);
+	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
+
+	}
+
+// Handing of Mosquitto messages
+void callback(char* topic, uint8_t* payload, unsigned int length) {
+	// handle message arrived
+	LOG("Mosquitto Callback\n");
+}
 
 
-static void send_message() {
-	uint8_t retries = 0;
-	uint8_t wait_time = 255;
+/* Connect to the network. */
+static bool connect(struct mosquitto *m) {
+	int res = mosquitto_connect(m, BROKER_HOSTNAME, BROKER_PORT, KEEPALIVE_SECONDS);
+	LOG("Connect return %d\n", res);
+	return res == MOSQ_ERR_SUCCESS;
+}
+
+/* Callback for successful connection: add subscriptions. */
+static void on_connect(struct mosquitto *m, void *udata, int res) {
+	if (res == 0) {   /* success */
+		LOG("Connect succeed\n");
+	} else {
+		die("connection refused\n");
+	}
+}
+
+/* Handle a message that just arrived via one of the subscriptions. */
+static void on_message(struct mosquitto *m, void *udata,
+const struct mosquitto_message *msg) {
+	if (msg == NULL) { return; }
+	LOG("-- got message @ %s: (%d, QoS %d, %s) '%s'\n",
+		msg->topic, msg->payloadlen, msg->qos, msg->retain ? "R" : "!r",
+		msg->payload);
+		
+	if (strlen((const char *)msg->topic) < strlen(MQTT_ROOT) + 2 + 3 + 1) {return; }	// message is smaller than "RFM/xxx/x" so likey invalid
+
 	Payload data;
 	uint8_t network;
-	data.nodeID = GATEWAY_ID;
-	data.sensorID = 10;
-	data.var1_usl = 1000;
-	data.var2_float = 99.0;
-	data.var3_float = 101.0;
-	
-	LOG("Will Send message to Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
-		data.nodeID,
-		data.sensorID,
-		data.var1_usl,
-		data.var2_float,
-		data.var3_float
-	);
 
-	if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data), retries, wait_time)) {
-		LOG("\n\nOK: Message sent to node %d ACK\n\n", data.nodeID);
+	sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
+	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0 && network == theConfig.networkId) {
+		
+		// extract the target network and the target node from the topic
+		sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
+		
+		if (network == theConfig.networkId) {
+			// only process the messages to our network
+		
+			sscanf((const char *)msg->payload, "%ld,%f,%f", &data.var1_usl, &data.var2_float, &data.var3_float);
+			
+			LOG("Received message for Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
+				data.nodeID,
+				data.sensorID,
+				data.var1_usl,
+				data.var2_float,
+				data.var3_float
+			);
+
+			theStats.messageSent++;
+			if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data))) {
+				LOG("Message sent to node %d ACK", data.nodeID);
+				theStats.ackReceived++;
+				}
+			else {
+				LOG("Message sent to node %d NAK", data.nodeID);
+				theStats.ackMissed++;
+			}
+		}
 	}
-	else {
-		LOG("\n\nERROR: essage sent to node %d NAK \n\n", data.nodeID);
-	}
+}
+
+/* A message was successfully published. */
+static void on_publish(struct mosquitto *m, void *udata, int m_id) {
+//	LOG(" -- published successfully\n");
+}
+
+/* Successful subscription hook. */
+static void on_subscribe(struct mosquitto *m, void *udata, int mid,
+		int qos_count, const int *granted_qos) {
+//	LOG(" -- subscribed successfully\n");
+}
+
+/* Register the callbacks that the mosquitto connection will use. */
+static bool set_callbacks(struct mosquitto *m) {
+	mosquitto_connect_callback_set(m, on_connect);
+	mosquitto_publish_callback_set(m, on_publish);
+	mosquitto_subscribe_callback_set(m, on_subscribe);
+	mosquitto_message_callback_set(m, on_message);
+	return true;
 }
 
