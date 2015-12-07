@@ -1,2 +1,4 @@
-pir_motion_sensor : pir_motion_sensor.c
-	g++  pir_motion_sensor.c -o pir_motion_sensor  -lwiringPi 
+sn_motion_sensor : sn_motion_sensor.c
+	g++  sn_motion_sensor.c -o sn_motion_sensor  -lwiringPi 
+	
+	
