@@ -45,33 +45,11 @@ void setup_pipe()
 // will parse DEVICE:%i:VALUE:%f into a struct
 static struct device_reading process_buffer(char* buffer) {
   struct device_reading reading;
-  char *input[4];
-  int loop;
-
-  reading.device_id = 0;
   
-  // read the string into an array 
-  input[0] = strtok(buffer, ":");
-  for (loop = 1; loop < 4; loop ++) {
-    input[loop] = strtok(NULL, ":");
+  if ( sscanf(buffer, "DEVICE_ID:%i:VALUE:%f", &(reading.device_id), &(reading.value)) != 2 ) {
+    fprintf(stderr, "Cannot scan line with device and value %s\n", buffer );
+    reading.device_id = 0;
   }
-  if (strcmp(input[0], "DEVICE_ID") != 0) {
-    fprintf(stderr, "Invalid first token in buffer %s\n", buffer );
-    return reading;
-  }
-  if (strcmp(input[2], "VALUE") != 0) {
-    fprintf(stderr, "Invalid third token in buffer %s\n", buffer );
-    return reading;
-  }
-  if (sscanf(input[3], "%f", &(reading.value)) != 1) {
-    fprintf(stderr, "Invalid fourth token in buffer %s\n", buffer );
-    return reading;
-  } 
-  if (sscanf(input[1], "%i", &(reading.device_id)) != 1) {
-    fprintf(stderr, "Invalid second token in buffer %s\n", buffer );
-    return reading;
-  } 
-  
   return reading;
 }
 

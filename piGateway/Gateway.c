@@ -101,20 +101,20 @@ int sendMQTT = 0;
 
 typedef struct {		
 	short           nodeID; 
-	short			sensorID;
+	short			      sensorID;
 	unsigned long   var1_usl; 
 	float           var2_float; 
-	float			var3_float;	
+	float			      var3_float;	
 } 
 Payload;
 Payload theData;
 
 typedef struct {
 	short           nodeID;
-	short			sensorID;		
+	short			      sensorID;		
 	unsigned long   var1_usl;
 	float           var2_float;
-	float			var3_float;		//
+	float         	var3_float;		//
 	int             var4_int;
 }
 SensorNode;
@@ -192,9 +192,9 @@ int main(int argc, char* argv[]) {
 	//RFM69 ---------------------------
 	theConfig.networkId = 101;
 	theConfig.nodeId = 1;
-	theConfig.frequency = RF69_433MHZ;
+	theConfig.frequency = RF69_868MHZ;
 	theConfig.keyLength = 16;
-	memcpy(theConfig.key, "xxxxxxxxxxxxxxxx", 16);
+	memcpy(theConfig.key, "sampleEncryptKey", 16);
 	theConfig.isRFM69HW = true;
 	theConfig.promiscuousMode = true;
 	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
@@ -270,7 +270,7 @@ static int run_loop(struct mosquitto *m) {
 				}
 			}//end if radio.ACK_REQESTED
 	
-			LOG("[%d] to [%d] ", theNodeID, targetID);
+			LOG("[%d] to [%d] \n", theNodeID, targetID);
 
 			if (dataLength != sizeof(Payload)) {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
@@ -294,15 +294,17 @@ static int run_loop(struct mosquitto *m) {
 					sensorNode.var2_float,
 					sensorNode.var3_float
 				);
-				if (sensorNode.nodeID == theNodeID)
+				if (sensorNode.nodeID == theNodeID) {
+          LOG("Will send to MOSQUITTO\n");
 					sendMQTT = 1;
-				else {
+        }	else {
 					hexDump(NULL, data, dataLength, 16);
 				}
 			}  
 		} //end if radio.receive
 
 		if (sendMQTT == 1) {
+      LOG("Now really sending\n");
 			//send var1_usl
 			MQTTSendULong(m, sensorNode.nodeID, sensorNode.sensorID, 1, sensorNode.var1_usl);
 
@@ -417,7 +419,7 @@ static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int va
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	sprintf(buff_message, "%04d%", val);
-//	LOG("%s %s", buff_topic, buff_message);
+	LOG("%s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
@@ -427,7 +429,7 @@ static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int v
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	sprintf(buff_message, "%u", val);
-//	LOG("%s %s", buff_topic, buff_message);
+	LOG("%s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 	}
 
@@ -437,7 +439,7 @@ static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int v
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	snprintf(buff_message, 12, "%f", val);
-//	LOG("%s %s", buff_topic, buff_message);
+	LOG("%s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
 
 	}

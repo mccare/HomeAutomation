@@ -18,7 +18,7 @@ see readme for more info
 // Frequency of your RFM69 chip
 #define RFM_FREQUENCY RF69_868MHZ
 // Network ID, should be the same in all nodes for this test
-#define NETWORK_ID 100
+#define NETWORK_ID 101
 // needs to be 16 byte long
 #define ENCRYPTION_KEY  "sampleEncryptKey"
 // set to true if you have a high power verison of the RFM69 (RFM69HW, RFM69CWH..)
@@ -190,7 +190,7 @@ static int run_loop() {
   		} else {
         counter += 1;
         if (counter % 1000 == 0) {
-          LOG("Nothing on the named pipe (FIFO)...\n");
+       //   LOG("Nothing on the named pipe (FIFO)...\n");
         }
   		}
     } 
@@ -280,7 +280,7 @@ static void send_message(struct device_reading reading) {
 	uint8_t wait_time = 255;
 	Payload data;
 	uint8_t network;
-	data.nodeID = theConfig.gatewayId;
+	data.nodeID = theConfig.nodeId;
 	data.sensorID = reading.device_id;
 	data.var1_usl = current_time_millis();
 	data.var2_float = reading.value;
@@ -294,7 +294,7 @@ static void send_message(struct device_reading reading) {
 		data.var3_float
 	);
 
-	if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data), retries, wait_time)) {
+	if (rfm69->sendWithRetry(theConfig.gatewayId,(const void*)(&data),sizeof(data), retries, wait_time)) {
 		LOG("\n\nOK: Message sent to node %d ACK\n\n", data.nodeID);
 	}
 	else {

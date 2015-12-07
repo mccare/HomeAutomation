@@ -1,11 +1,10 @@
-Send Receive (without mosquitto)
-===============================
+# Send Receive (without mosquitto)
 
 I have changed the Gateway.c code so it doesn't talk to mosquitto any more and will just send and receive packets for testing out my RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
 
 In further development the sender part can now be used to create sensor nodes on rasperry pi. Measuring scripts can write a line into the named pipe. See transport.c for configuration
 
-###### Compile and usage
+## Compile and usage
 
 Edit the SendeReceiver.c to set your frequencye, encryption key and network id
 
@@ -13,7 +12,7 @@ Edit the SendeReceiver.c to set your frequencye, encryption key and network id
 make SenderReceiver
 ```
 
-###### Running it
+## Running it
 
 Run one sending node: (will send as node_id 10 and to node_id 11)
 ```
@@ -31,23 +30,17 @@ echo "DEVICE_ID:10:VALUE:10.0" > /tmp/SenderReceiverIO.named_pipe
 ```
 
 
+### Sender mode:
+  
+when run with the "-s" flag (sender) a named pipe in /tmp directory will be created
+write DEVICE_ID:<int>:VALUE:<float>  to the named pipe and a message will be sent out
 
+### Receiver mode:
 
+this is more for testing
+ 
 
-
-
- * Sender mode:
- *  
- *   when run with the "-s" flag (sender) a named pipe in /tmp directory will be created
- *   write DEVICE_ID:<int>:VALUE:<float>  to the named pipe and a message will be sent out
- * 
- * Receiver mode:
- *   
- *  this is more for testing
-
-Original Readme (Gateway)
-==========================
-
+# Gateway
 
 
 This repo contain a port of LowPowerLab RFM69 library, initially targeted at Arduino, to Raspberry Pi.
@@ -155,22 +148,3 @@ sudo make uninstall
 ```
 
 
-### Send Receive Test
-Since I ran into the problem that I couldn't send/receive from my setup, I have added a SenderReceiver script:
-
-compile with
-```
-make SenderReceiver
-```
-
-Run with
-```
-SenderReceiver -s
-```
-will send the packets
-
-```
-SenderReceiver -r
-```
-
-Will receive the packets. 
