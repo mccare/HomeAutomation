@@ -9,4 +9,20 @@
 ## Motion tracking with HC SR501
 
 * change pir_motion.c to include your device_id and your PIN number
-* 
+* compile with make
+
+# Installation
+
+Configure the temperature reading via crontab:
+```
+* * * * * /path/to/HomeAutomation/piSensorNode/sn_temperature.py
+```
+
+Enable the SenderReceiver (for sending the RFM69 packages) and the motion tracker via systemd and change the path to the executable:
+```
+cp /path/to/sn_sender.service /etc/systemd/system
+sudo systemctl enable  sn_sender.service 
+cp /path/to/sn_motion_sensor.service /etc/systemd/system
+sudo systemctl enable  sn_motion_sensor.service  
+```
+

@@ -1,0 +1,8 @@
+[Unit]
+Description=Sensor Node Sender Service
+
+[Service]
+ExecStart=/home/pi/sensornet/HomeAutomation/piGateway/SenderReceiver -s 100 1
+
+[Install]
+WantedBy=multi-user.target
