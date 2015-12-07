@@ -21,19 +21,16 @@ Modifications Needed:
 #ifdef DAEMON
 #define LOG(...) do { syslog(LOG_INFO, __VA_ARGS__); } while (0)
 #define LOG_E(...) do { syslog(LOG_ERR, __VA_ARGS__); } while (0)
+#define LOG_D(...) do { syslog(LOG_DEBUG, __VA_ARGS__); } while (0)
 #else
 #ifdef DEBUG
-#define DEBUG1(expression)  fprintf(stderr, expression)
-#define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
-#define DEBUGLN1(expression)  
 #define LOG(...) do { printf(__VA_ARGS__); } while (0)
 #define LOG_E(...) do { printf(__VA_ARGS__); } while (0)
+#define LOG_D(...) do { printf(__VA_ARGS__); } while (0)
 #else
-#define DEBUG1(expression)
-#define DEBUG2(expression, arg)
-#define DEBUGLN1(expression)
 #define LOG(...)
-#define LOG_E(...)
+#define LOG_E(...) do { fprintf(stderr, __VA_ARGS__); } while (0)
+#define LOG_D(...) 
 #endif
 #endif
 
@@ -94,6 +91,7 @@ Config theConfig;
 #define BROKER_PORT 1883
 
 #define MQTT_ROOT "RFM"
+#define MQTT_TOPIC_PREFIX "sensors"
 #define MQTT_CLIENT_ID "arduinoClient"
 #define MQTT_RETRY 500
 
@@ -304,7 +302,6 @@ static int run_loop(struct mosquitto *m) {
 		} //end if radio.receive
 
 		if (sendMQTT == 1) {
-      LOG("Now really sending\n");
 			//send var1_usl
 			MQTTSendULong(m, sensorNode.nodeID, sensorNode.sensorID, 1, sensorNode.var1_usl);
 
@@ -413,36 +410,37 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 	while (line * bloc < len);
 }
 
-static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val) {
-	char buff_topic[6];
-	char buff_message[7];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
-	sprintf(buff_message, "%04d%", val);
-	LOG("%s %s\n", buff_topic, buff_message);
+
+static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val) {
+	char buff_topic[20];
+	char buff_message[12];
+
+	snprintf(buff_topic, 20, "sensor/%03d/%03d/%1d", node, sensor, var);
+	snprintf(buff_message, 12, "%d", val);
+	LOG_D("Publish via MQTT:  %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
 static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int var, unsigned long val) {
-	char buff_topic[6];
+	char buff_topic[20];
 	char buff_message[12];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
-	sprintf(buff_message, "%u", val);
-	LOG("%s %s\n", buff_topic, buff_message);
+	snprintf(buff_topic, 20, "sensor/%d/%d/%d", node, sensor, var);
+	snprintf(buff_message, 12, "%u", val);
+	LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
-	}
+}
 
 static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val) {
-	char buff_topic[6];
+	char buff_topic[20];
 	char buff_message[12];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	snprintf(buff_topic, 20, "sensor/%d/%d/%d", node, sensor, var);
 	snprintf(buff_message, 12, "%f", val);
-	LOG("%s %s\n", buff_topic, buff_message);
+	LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
-
-	}
+}
 
 // Handing of Mosquitto messages
 void callback(char* topic, uint8_t* payload, unsigned int length) {

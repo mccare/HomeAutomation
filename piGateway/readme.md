@@ -1,6 +1,6 @@
 # Send Receive (without mosquitto)
 
-I have changed the Gateway.c code so it doesn't talk to mosquitto any more and will just send and receive packets for testing out my RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
+SenderReceiver will just send and receive packets for testing out the RFM69CW config. Motivation being to debug my RFM69CW sensor setup.
 
 In further development the sender part can now be used to create sensor nodes on rasperry pi. Measuring scripts can write a line into the named pipe. See transport.c for configuration
 
@@ -128,7 +128,7 @@ sudo ./Gateway
 sudo is required as some of the WiringPi library need it
 
 
-### Daemon
+## Daemon
 The Gateway can also be run as a daemon
 
 To build it you can use 
@@ -145,6 +145,28 @@ This will build it as well, if not already done. The service will be lauch at ev
 To remove the service you can use the command
 ```
 sudo make uninstall
+```
+
+##MQTT Config with Openhab
+
+* a device will publish four values via mosquitto 
+ * 1: the time of the measurement 
+ * 2: the value as float from the measurement 
+ * 3: the battery status 
+ * 4: RSSI (the sender strength)
+ 
+* the topic is is sensor/<node_id>/<device_id>/<value number>
+
+Sample for a temperature sensor in OH2:
+
+mqtt.cfg in services
+```
+broker.url=tcp://broker_hostname:1883
+```
+
+item:
+```
+Number Temperature_Corridor       "Corridor Temperature"    (Temperatur) {mqtt="<[broker:sensor/100/10/2:state:default]"}
 ```
 
 

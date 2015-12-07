@@ -96,7 +96,7 @@ static long current_time_millis(void) {
 
 static void uso(void) {
 	fprintf(stderr, "Use:\nSender: -s <my node id> <destination id>\nReceiver:  -r <my node id> \n");
-  fprintf(stderr, "Nodeid is an unsigned 8 bit integer (1-255) and must be unique on your network");
+  fprintf(stderr, "Nodeid is an unsigned 8 bit integer (1-255) and must be unique on your network\n");
 	exit(1);
 }
 
@@ -123,9 +123,9 @@ int main(int argc, char* argv[]) {
 	theConfig.isRFM69HW = RFM69H;
 	theConfig.promiscuousMode = true;
   if (mode == sender) {
-    LOG("SENDING: NETWORK %d NODE_ID %d FREQUENCY %d to GATEWAY_ID %d", theConfig.networkId, theConfig.nodeId, theConfig.frequency, theConfig.gatewayId);
+    LOG("SENDING: NETWORK %d NODE_ID %d FREQUENCY %d to GATEWAY_ID %d\n", theConfig.networkId, theConfig.nodeId, theConfig.frequency, theConfig.gatewayId);
   } else {
-    LOG("RECEIVING: NETWORK %d NODE_ID %d FREQUENCY %d ", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
+    LOG("RECEIVING: NETWORK %d NODE_ID %d FREQUENCY %d \n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
   }
 	
 	rfm69 = new RFM69();

@@ -31,6 +31,7 @@
 // **********************************************************************************
 #include "rfm69.h"
 #include "rfm69registers.h"
+
 #ifdef RASPBERRY
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -296,7 +297,7 @@ void RFM69::setPowerLevel(uint8_t powerLevel)
 
 bool RFM69::canSend()
 {
-	 fprintf(stderr, "mode %d, payload %d, rssi %d %d\n", _mode, PAYLOADLEN, readRSSI(), CSMA_LIMIT);
+	// fprintf(stderr, "mode %d, payload %d, rssi %d %d\n", _mode, PAYLOADLEN, readRSSI(), CSMA_LIMIT);
   if (_mode == RF69_MODE_RX && PAYLOADLEN == 0 && readRSSI() < CSMA_LIMIT) // if signal stronger than -100dBm is detected assume channel activity
   {
     setMode(RF69_MODE_STANDBY);
@@ -352,7 +353,7 @@ bool RFM69::ACKRequested() {
 
 // should be called immediately after reception in case sender wants ACK
 void RFM69::sendACK(const void* buffer, uint8_t bufferSize) {
-  fprintf(stderr, "\nSENDING ACK\n");
+  // fprintf(stderr, "\nSENDING ACK\n");
   uint8_t sender = SENDERID;
   int16_t _RSSI = RSSI; // save payload received RSSI value
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
@@ -368,7 +369,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   setMode(RF69_MODE_STANDBY); // turn off receiver to prevent reception while filling fifo
   while ((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00); // wait for ModeReady
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_00); // DIO0 is "Packet Sent"
-  fprintf(stderr, "DIO mapping set to 00 (PACKET SENT)");
+  // fprintf(stderr, "DIO mapping set to 00 (PACKET SENT)");
   if (bufferSize > RF69_MAX_DATA_LEN) bufferSize = RF69_MAX_DATA_LEN;
 
   // control byte
@@ -411,7 +412,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   setMode(RF69_MODE_TX);
   uint32_t txStart = millis();
   while (digitalRead(_interruptPin) == 0 && millis() - txStart < RF69_TX_LIMIT_MS); // wait for DIO0 to turn HIGH signalling transmission finish
-  fprintf(stderr, "Send time is %d max time is %d\n", millis() - txStart, RF69_TX_LIMIT_MS);
+  // fprintf(stderr, "Send time is %d max time is %d\n", millis() - txStart, RF69_TX_LIMIT_MS);
   //while (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PACKETSENT == 0x00); // wait for ModeReady
   setMode(RF69_MODE_STANDBY);
 }
@@ -423,7 +424,7 @@ void RFM69::interruptHandler() {
   unsigned char thedata[67];
   char i;
   for(i = 0; i < 67; i++) thedata[i] = 0;
-  fprintf(stderr, "interruptHandler %d\n", intCount);
+  // fprintf(stderr, "interruptHandler %d\n", intCount);
 #endif
  
  //pinMode(4, OUTPUT);
@@ -431,7 +432,7 @@ void RFM69::interruptHandler() {
   delayMicroseconds(MICROSLEEP_LENGTH);
   if (_mode == RF69_MODE_RX && (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY))
   {
-	fprintf(stderr, "Reading data from SPI\n");
+	// fprintf(stderr, "Reading data from SPI\n");
     //RSSI = readRSSI();
     setMode(RF69_MODE_STANDBY);
 #ifdef RASPBERRY
@@ -454,7 +455,7 @@ void RFM69::interruptHandler() {
     if(!(_promiscuousMode || TARGETID == _address || TARGETID == RF69_BROADCAST_ADDR) // match this node's address, or broadcast address or anything in promiscuous mode
        || PAYLOADLEN < 3) // address situation could receive packets that are malformed and don't fit this libraries extra fields
     {
-  	  fprintf(stderr, "RECEIVE Bailing out: Target %d address %d payload len %d", TARGETID, _address, PAYLOADLEN);
+  	  // fprintf(stderr, "RECEIVE Bailing out: Target %d address %d payload len %d", TARGETID, _address, PAYLOADLEN);
       PAYLOADLEN = 0;
       unselect();
       receiveBegin();
@@ -497,7 +498,7 @@ void RFM69::interruptHandler() {
     if (DATALEN < RF69_MAX_DATA_LEN) DATA[DATALEN] = 0; // add null at end of string
     unselect();
     setMode(RF69_MODE_RX);
-	fprintf(stderr, "Done reading from chip payload len %d Data len\n", PAYLOADLEN, DATALEN);
+	// fprintf(stderr, "Done reading from chip payload len %d Data len\n", PAYLOADLEN, DATALEN);
   } 
   	else {
 		  if (_mode == RF69_MODE_RX) 
@@ -533,7 +534,7 @@ void RFM69::receiveBegin() {
   if (readReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY)
     writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_01); // set DIO0 to "PAYLOADREADY" in receive mode
-  fprintf(stderr, "DIO mapping set to 01 (Payload Ready)");
+  // fprintf(stderr, "DIO mapping set to 01 (Payload Ready)");
   
   setMode(RF69_MODE_RX);
 }
