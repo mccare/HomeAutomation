@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
 	theConfig.frequency = RF69_868MHZ;
 	theConfig.keyLength = 16;
 	memcpy(theConfig.key, "sampleEncryptKey", 16);
-	theConfig.isRFM69HW = true;
+	theConfig.isRFM69HW = false;
 	theConfig.promiscuousMode = true;
 	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
 
@@ -422,7 +422,7 @@ static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int va
 
 	snprintf(buff_topic, 20, "sensor/%03d/%03d/%1d", node, sensor, var);
 	snprintf(buff_message, 12, "%d", val);
-  LOG_D("Publish via MQTT:  %s %s\n", buff_topic, buff_message);
+   // LOG_D("Publish via MQTT:  %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
@@ -432,7 +432,7 @@ static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int v
 
 	snprintf(buff_topic, 20, "sensor/%d/%d/%d", node, sensor, var);
 	snprintf(buff_message, 12, "%u", val);
-  LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
+   // LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
@@ -442,7 +442,7 @@ static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int v
 
 	snprintf(buff_topic, 20, "sensor/%d/%d/%d", node, sensor, var);
 	snprintf(buff_message, 12, "%f", val);
-  LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
+  // LOG_D("Publish via MQTT: %s %s\n", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
 }
 
@@ -493,7 +493,7 @@ const struct mosquitto_message *msg) {
 		
 			sscanf((const char *)msg->payload, "%ld,%f,%f", &data.var1_usl, &data.var2_float, &data.var3_float);
 			
-			LOG("Received message for Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
+			LOG("Received Mosquitto message for Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 				data.nodeID,
 				data.sensorID,
 				data.var1_usl,
@@ -503,11 +503,11 @@ const struct mosquitto_message *msg) {
 
 			theStats.messageSent++;
 			if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data))) {
-				LOG("Message sent to node %d ACK", data.nodeID);
+				LOG("Message sent to node %d ACK\n", data.nodeID);
 				theStats.ackReceived++;
 				}
 			else {
-				LOG("Message sent to node %d NAK", data.nodeID);
+				LOG("Message sent to node %d NAK\n", data.nodeID);
 				theStats.ackMissed++;
 			}
 		}
