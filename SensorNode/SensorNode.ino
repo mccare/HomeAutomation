@@ -39,7 +39,7 @@
 //RFM69  --------------------------------------------------------------------------------------------------
 #include <RFM69.h>
 #include <SPI.h>
-#define NODEID        200    //unique for each node on same network
+#define NODEID        101    //unique for each node on same network
 #define NETWORKID     101  //the same on all nodes that talk to each other
 #define GATEWAYID     1
 //Match frequency to the hardware version of the radio on your Moteino (uncomment one):
@@ -111,12 +111,28 @@ void setup()
   //end RFM--------------------------------------------
   
   pinMode(led, OUTPUT);
-  radio.promiscuous(true);
+  radio.promiscuous(false);
+  update_dimmer(0);
 }
 
 long blinkInterval = 3000;
 long blinkNext = 0;
 bool high = false;
+int dimmer_percentage = 0; // 0-100, where 100 is "full on"
+
+// PWM signal goes from 255 (full voltage) to 0 (no voltage). The Meanwell LCM 40 will display full lights for "no voltage" and shuts off with "full voltage", 
+// so we have to invert the pwm signal, 255 = 0%, 0 = 100% light
+void update_dimmer(int new_value) {
+  dimmer_percentage = new_value; 
+  int dimmer_pwm = (100 - dimmer_percentage) * 255 / 100; // normaly times 2.55 but since it is int, we'll do times 25 and then divde by 10. 
+  // for the sides we us full on or full off
+  if (dimmer_pwm > 240) 
+    dimmer_pwm = 255;
+  if (dimmer_pwm < 20)
+    dimmer_pwm = 0;
+  DEBUG1("Setting PWM Pin to "); DEBUGLN1(dimmer_pwm);
+  analogWrite(9, dimmer_pwm);
+}
 
 void loop()
 {
@@ -134,7 +150,7 @@ void loop()
   //check for any received packets
   if (radio.receiveDone())
   {
-    Serial.print('[');Serial.print(radio.SENDERID, DEC);Serial.print("] ");
+    DEBUG1('[');DEBUG1(radio.SENDERID);DEBUG1("] ");
     if (radio.DATALEN == 8) { // ACK TEST
       for (byte i = 0; i < radio.DATALEN; i++)
         DEBUG1((char)radio.DATA[i]);
@@ -153,6 +169,7 @@ void loop()
       DEBUGLN1 (theData.var1_usl);
       DEBUG1 ("    var2_float ");
       DEBUGLN1 (theData.var2_float);
+      update_dimmer((int) theData.var2_float);
       DEBUG1 ("    var3_float ");
       DEBUGLN1 (theData.var3_float);
       

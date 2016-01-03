@@ -14,11 +14,13 @@ void motion_detected();
 #define NAMED_PIPE "/tmp/SenderReceiverIO.named_pipe"
 // change the Device ID in the following string
 #define MOTION_DETECTED_STRING "DEVICE_ID:11:VALUE:1"
+// wiring pi numbering: http://wiringpi.com/pins/
+#define PIN_NUMBER 0
 
 int main(int argc, char **argv) {
   
   wiringPiSetup();
-  wiringPiISR(1, INT_EDGE_RISING, motion_detected);
+  wiringPiISR(PIN_NUMBER, INT_EDGE_RISING, motion_detected);
   for(;;) {
     usleep(1000);
   }

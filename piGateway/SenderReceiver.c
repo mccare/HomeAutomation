@@ -286,8 +286,7 @@ static void send_message(struct device_reading reading) {
 	data.var2_float = reading.value;
 	data.var3_float = 0;
 	
-	LOG("Will Send message to gateway %d data is Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
-  theConfig.gatewayId,
+	LOG("Will Send message to Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 		data.nodeID,
 		data.sensorID,
 		data.var1_usl,
