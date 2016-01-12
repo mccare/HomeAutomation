@@ -80,11 +80,8 @@ static void send_message(struct device_reading reading);
 static int run_loop();
 
 
-enum Mode {
-  sender,
-  receiver
-}; 
-enum Mode mode;
+static bool receiver = false;
+static bool sender = false;
 
 static long current_time_millis(void) {
 	struct timeval tv;
@@ -94,35 +91,50 @@ static long current_time_millis(void) {
     return ((tv.tv_sec) * 1000 + tv.tv_usec/1000.0) + 0.5;
 }
 
-static void uso(void) {
-	fprintf(stderr, "Use:\nSender: -s <my node id> <destination id>\nReceiver:  -r <my node id> \n");
+static void uso(const char* message) {
+  fprintf(stderr, message);
+	fprintf(stderr, "Use:\nSender: -s <destination_id> -n <my node id> \nReceiver:  -n <my_node_id> -r  \n");
   fprintf(stderr, "Nodeid is an unsigned 8 bit integer (1-255) and must be unique on your network\n");
+  fprintf(stderr, "You can also use it in receiver and sender mode\n");
 	exit(1);
 }
 
 int main(int argc, char* argv[]) {
-	if (argc < 3) uso();
-  if (strcmp(argv[1], "-r") == 0 ) {
-    mode = receiver;
-    theConfig.nodeId = atoi(argv[2]);
-  } else if (strcmp(argv[1], "-s") == 0 && argc == 4) {
-    mode = sender;
-    theConfig.nodeId = atoi(argv[2]);
-    theConfig.gatewayId =  atoi(argv[3]);
-  } else {
-    fprintf(stderr, "invalid arguments");
-    uso();
+  int opt;
+
+  while ( ( opt = getopt(argc, argv, "rs:n:") ) != -1 ) {
+    switch ( opt ) {
+      case 'r':
+        receiver = true;
+        break;
+      case 's':
+        theConfig.gatewayId = atoi(optarg);
+        sender = true;
+        break;
+      case 'n':
+        theConfig.nodeId = atoi(optarg);
+        break;
+      default: /* '?' */
+        uso("Default\n");
+      }
   }
 
+  if ( ! receiver && ! sender ) {
+    uso("Needs to be sender and/or receiver\n");
+  }
 
-	//RFM69 ---------------------------
+  if ( theConfig.nodeId == 0 ) {
+    uso("missing node id\n");
+  }
+
+  //RFM69 ---------------------------
 	theConfig.networkId = NETWORK_ID;
 	theConfig.frequency = RFM_FREQUENCY;
 	theConfig.keyLength = 16;
 	memcpy(theConfig.key, ENCRYPTION_KEY, 16);
 	theConfig.isRFM69HW = RFM69H;
 	theConfig.promiscuousMode = true;
-  if (mode == sender) {
+  if (sender) {
     LOG("SENDING: NETWORK %d NODE_ID %d FREQUENCY %d to GATEWAY_ID %d\n", theConfig.networkId, theConfig.nodeId, theConfig.frequency, theConfig.gatewayId);
   } else {
     LOG("RECEIVING: NETWORK %d NODE_ID %d FREQUENCY %d \n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
@@ -142,7 +154,7 @@ int counter = 0;
 static int run_loop() {
   setup_pipe();
 	for (;;) {
-		if (mode == receiver && rfm69->receiveDone()) {
+		if (receiver && rfm69->receiveDone()) {
 			LOG("Received something...\n");
 			// store the received data localy, so they can be overwited
 			// This will allow to send ACK immediately after
@@ -168,6 +180,7 @@ static int run_loop() {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
 				hexDump(NULL, data, dataLength, 16);		
 			} else {
+        struct device_reading device_data;
 				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
 
 				LOG("Received Node ID = %d Device ID = %d Time = %d  RSSI = %d var2 = %f var3 = %f\n",
@@ -178,10 +191,13 @@ static int run_loop() {
 					theData.var2_float,
 					theData.var3_float
 				);
+          device_data.device_id = theData.sensorID;
+          device_data.value = theData.var2_float;
+          write_to_pipe(device_data);
 			}  
 		} //end if radio.receive
 		
-    if (mode == sender) {
+    if (sender) {
       struct device_reading reading;
       reading = read_from_pipe(5000);
       if (reading.device_id > 0) {

@@ -9,4 +9,6 @@ struct device_reading {
 
 void setup_pipe();
 struct device_reading read_from_pipe(long microseconds) ;
+void write_to_pipe(struct device_reading data) ;
+
 

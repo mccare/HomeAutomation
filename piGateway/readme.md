@@ -16,12 +16,12 @@ make SenderReceiver
 
 Run one sending node: (will send as node_id 10 and to node_id 11)
 ```
-sudo ./SenderReceiver -s 10 11
+sudo ./SenderReceiver -s 10 -n 11
 ```
 
 on receiving node: (will listen as node_id 11)
 ```
-sudo ./SenderReceiver -r 11
+sudo ./SenderReceiver -r -n 11 
 ```
 
 To send packets please echo 
@@ -37,7 +37,11 @@ write DEVICE_ID:<int>:VALUE:<float>  to the named pipe and a message will be sen
 
 ### Receiver mode:
 
-this is more for testing
+The receiver mode will receive packages via RFM69 and post the value of the value2 float on a named pipe in the /tmp directory. For your script to act on it, create a named pipe in tmp named
+```
+/tmp/SenderReceiverIO_device_%d.named_pipe
+```
+The value will be posted there. Look at pwm.c in piSensorNode.
  
 
 # Gateway
