@@ -1,5 +1,8 @@
-all: sn_motion_sensor sn_pwm
+all: sn_motion_sensor sn_pwm sn_master_button
 
+sn_master_button: sn_master_button.c
+	g++  sn_master_button.c -o sn_master_button  -lwiringPi 
+	
 sn_motion_sensor : sn_motion_sensor.c
 	g++  sn_motion_sensor.c -o sn_motion_sensor  -lwiringPi 
 	
