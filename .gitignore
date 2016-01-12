@@ -1,2 +1,4 @@
 .DS_Store
+piSensorNode/sn_pwm
+piSensorNode/sn_motion_sensor
 
