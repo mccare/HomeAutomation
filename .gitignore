@@ -1,4 +1,5 @@
 .DS_Store
 piSensorNode/sn_pwm
 piSensorNode/sn_motion_sensor
+piSensorNode/sn_master_button
 

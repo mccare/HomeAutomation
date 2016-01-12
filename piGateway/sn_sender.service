@@ -2,7 +2,7 @@
 Description=Sensor Node Sender Service
 
 [Service]
-ExecStart=/home/pi/sensornet/HomeAutomation/piGateway/SenderReceiver -s 100 1
+ExecStart=/home/pi/sensornet/HomeAutomation/piGateway/SenderReceiver -r -s 1 -n 100
 
 [Install]
 WantedBy=multi-user.target
