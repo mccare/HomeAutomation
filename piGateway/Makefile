@@ -4,8 +4,15 @@ install : Gatewayd
 	chmod +x /etc/init.d/Gatewayd
 	update-rc.d Gatewayd defaults
 	service Gatewayd start
-	
-	
+
+install_systemd: Gateway
+	systemctl stop sn_gateway || true
+	cp Gateway /usr/local/bin
+	cp sn_gateway.service /etc/systemd/system
+	systemctl daemon-reload
+	systemctl start sn_gateway
+	systemctl enable sn_gateway
+
 uninstall:
 	service Gatewayd stop
 	update-rc.d -f Gatewayd remove

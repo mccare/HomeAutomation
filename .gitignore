@@ -2,4 +2,6 @@
 piSensorNode/sn_pwm
 piSensorNode/sn_motion_sensor
 piSensorNode/sn_master_button
+piGateway/Gateway
+piGateway/Gatewayd
 
