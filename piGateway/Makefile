@@ -11,7 +11,7 @@ install: all
 	done
 
 sn_gateway : Gateway.c rfm69.cpp
-	g++ Gateway.c rfm69.cpp -o sn_gateway -lwiringPi -lmosquitto -DRASPBERRY -DDAEMON
+	g++ Gateway.c rfm69.cpp -o sn_gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
 
 sn_sender_receiver : SenderReceiver.c rfm69.cpp transport.c
 	g++ SenderReceiver.c rfm69.cpp transport.c -o sn_sender_receiver -lwiringPi -DRASPBERRY
