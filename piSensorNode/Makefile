@@ -1,4 +1,4 @@
-TARGETS = sn_motion_sensor sn_pwm sn_master_button
+TARGETS = sn_motion_sensor sn_pwm sn_master_button sn_temperature
 
 all: $(TARGETS)
 
@@ -18,3 +18,5 @@ sn_motion_sensor : sn_motion_sensor.c
 
 sn_pwm : sn_pwm.c
 	g++  sn_pwm.c -o sn_pwm  -lwiringPi
+
+sn_temperature: ;

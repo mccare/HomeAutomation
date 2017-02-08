@@ -10,6 +10,7 @@
 
 void master_button_pressed();
 
+#define LOG(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 
 #define NAMED_PIPE "/tmp/SenderReceiverIO.named_pipe"
 // change the Device ID in the following string
@@ -29,13 +30,13 @@ int main(int argc, char **argv) {
 
 void setup() {
   if ( ! access( NAMED_PIPE, W_OK ) ) {
-    fprintf(stderr, "Missing named pipe at %s", NAMED_PIPE);
+    LOG("Missing named pipe at %s", NAMED_PIPE);
     exit(1);
   }
 }
 
 void master_button_pressed() {
-	fprintf(stderr,  " MASTER BUTTON PRESSED DETECTED! \n");
+	LOG(" MASTER BUTTON PRESSED DETECTED! \n");
   int file ;
   char buffer[30];
   file = open(NAMED_PIPE, O_WRONLY );
@@ -43,6 +44,6 @@ void master_button_pressed() {
     write(file, BUTTON_PRESSED_STRING, strlen(BUTTON_PRESSED_STRING));
     close(file);
   } else {
-    fprintf(stderr, "Cannot write to file\n");
+    LOG("Cannot write to file\n");
   }
 }

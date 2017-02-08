@@ -24,4 +24,5 @@ with open(fifo, 'w+') as f:
 with open(fifo, 'w+') as f:
     f.write( 'DEVICE_ID:{}:VALUE:{}'.format(device_id, humidity) )
 
-#	print 'Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity)
+print 'Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity)
+sys.stdout.flush()
