@@ -1,8 +1,0 @@
-[Unit]
-Description=Sensor Node Gateway RFM69 to MQTT
-
-[Service]
-ExecStart=/usr/local/bin/Gateway
-
-[Install]
-WantedBy=multi-user.target

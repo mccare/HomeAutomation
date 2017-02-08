@@ -1,29 +1,17 @@
-install : Gatewayd
-	cp Gatewayd /usr/local/bin
-	cp GatewaydService /etc/init.d/Gatewayd
-	chmod +x /etc/init.d/Gatewayd
-	update-rc.d Gatewayd defaults
-	service Gatewayd start
+TARGETS= sn_gateway sn_sender_receiver
 
-install_systemd: Gateway
-	systemctl stop sn_gateway || true
-	cp Gateway /usr/local/bin
-	cp sn_gateway.service /etc/systemd/system
-	systemctl daemon-reload
-	systemctl start sn_gateway
-	systemctl enable sn_gateway
+all: $(TARGETS)
 
-uninstall:
-	service Gatewayd stop
-	update-rc.d -f Gatewayd remove
-	rm /etc/init.d/Gatewayd
-	rm /usr/local/bin/Gatewayd
+install: all
+	for target in $(TARGETS) ; do \
+		if [ -e /usr/local/bin/$$target ] ; then \
+			rm /usr/local/bin/$$target || true; \
+		fi ; \
+		cp $$target /usr/local/bin ; \
+	done
 
-Gatewayd : Gateway.c rfm69.cpp
-	g++ Gateway.c rfm69.cpp -o Gatewayd -lwiringPi -lmosquitto -DRASPBERRY -DDAEMON
+sn_gateway : Gateway.c rfm69.cpp
+	g++ Gateway.c rfm69.cpp -o sn_gateway -lwiringPi -lmosquitto -DRASPBERRY -DDAEMON
 
-Gateway : Gateway.c rfm69.cpp
-	g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
-
-SenderReceiver : SenderReceiver.c rfm69.cpp transport.c
-	g++ SenderReceiver.c rfm69.cpp transport.c -o SenderReceiver -lwiringPi -DRASPBERRY
+sn_sender_receiver : SenderReceiver.c rfm69.cpp transport.c
+	g++ SenderReceiver.c rfm69.cpp transport.c -o sn_sender_receiver -lwiringPi -DRASPBERRY

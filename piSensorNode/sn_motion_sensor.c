@@ -10,6 +10,7 @@
 
 void motion_detected();
 
+#define LOG(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 
 #define NAMED_PIPE "/tmp/SenderReceiverIO.named_pipe"
 // change the Device ID in the following string
@@ -18,9 +19,10 @@ void motion_detected();
 #define PIN_NUMBER 0
 
 int main(int argc, char **argv) {
-  
+
   wiringPiSetup();
   wiringPiISR(PIN_NUMBER, INT_EDGE_RISING, motion_detected);
+  LOG( "sn_motion_service launched, ready\n");
   for(;;) {
     usleep(1000);
   }
@@ -29,13 +31,13 @@ int main(int argc, char **argv) {
 
 void setup() {
   if ( ! access( NAMED_PIPE, W_OK ) ) {
-    fprintf(stderr, "Missing named pipe at %s", NAMED_PIPE);
+    LOG( "Missing named pipe at %s\n", NAMED_PIPE);
     exit(1);
   }
 }
 
-void motion_detected() { 
-	fprintf(stderr,  " MOTION DETECTED! \n");
+void motion_detected() {
+	LOG( " MOTION DETECTED! \n");
   int file ;
   char buffer[30];
   file = open(NAMED_PIPE, O_WRONLY );
@@ -43,6 +45,6 @@ void motion_detected() {
     write(file, MOTION_DETECTED_STRING, strlen(MOTION_DETECTED_STRING));
     close(file);
   } else {
-    fprintf(stderr, "Cannot write to file\n");
+    LOG( "Cannot write to file\n");
   }
 }

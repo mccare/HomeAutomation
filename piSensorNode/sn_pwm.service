@@ -1,9 +1,0 @@
-[Unit]
-Description=Sensor Node Pulse Width Modulation on PIN 1
-After=sn_sender.service
-
-[Service]
-ExecStart=/home/pi/sensornet/HomeAutomation/piSensorNode/sn_pwm
-
-[Install]
-WantedBy=multi-user.target

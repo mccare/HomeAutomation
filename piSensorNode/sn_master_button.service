@@ -1,9 +1,0 @@
-[Unit]
-Description=Sensor Node Motion Sensor Trigger
-After=sn_sender.service
-
-[Service]
-ExecStart=/home/pi/sensornet/HomeAutomation/piSensorNode/sn_master_button
-
-[Install]
-WantedBy=multi-user.target
