@@ -7,23 +7,23 @@
 // **********************************************************************************
 // License
 // **********************************************************************************
-// This program is free software; you can redistribute it 
-// and/or modify it under the terms of the GNU General    
-// Public License as published by the Free Software       
-// Foundation; either version 3 of the License, or        
-// (at your option) any later version.                    
-//                                                        
-// This program is distributed in the hope that it will   
-// be useful, but WITHOUT ANY WARRANTY; without even the  
-// implied warranty of MERCHANTABILITY or FITNESS FOR A   
-// PARTICULAR PURPOSE. See the GNU General Public        
+// This program is free software; you can redistribute it
+// and/or modify it under the terms of the GNU General
+// Public License as published by the Free Software
+// Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will
+// be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A
+// PARTICULAR PURPOSE. See the GNU General Public
 // License for more details.                              
-//                                                        
-// You should have received a copy of the GNU General    
+//
+// You should have received a copy of the GNU General
 // Public License along with this program.
 // If not, see <http://www.gnu.org/licenses/>.
-//                                                        
-// Licence can be viewed at                               
+//
+// Licence can be viewed at
 // http://www.gnu.org/licenses/gpl-3.0.txt
 //
 // Please maintain this license information along with authorship
@@ -426,7 +426,7 @@ void RFM69::interruptHandler() {
   for(i = 0; i < 67; i++) thedata[i] = 0;
   // fprintf(stderr, "interruptHandler %d\n", intCount);
 #endif
- 
+
  //pinMode(4, OUTPUT);
   //digitalWrite(4, 1);
   delayMicroseconds(MICROSLEEP_LENGTH);
@@ -499,25 +499,25 @@ void RFM69::interruptHandler() {
     unselect();
     setMode(RF69_MODE_RX);
 	// fprintf(stderr, "Done reading from chip payload len %d Data len\n", PAYLOADLEN, DATALEN);
-  } 
+  }
   	else {
-		  if (_mode == RF69_MODE_RX) 
+		  if (_mode == RF69_MODE_RX)
 		    fprintf(stderr, "ERROR: out of spec: input is ready by interrupt but PAYLOADREADY IRQ register not set");
   }
-	  
+
   RSSI = readRSSI();
   //digitalWrite(4, 0);
 
 }
 
 // internal function
-void RFM69::isr0() { 
+void RFM69::isr0() {
 	//fprintf(stderr,  " Isr0 %d ", intCount);
 	if (intCount++ > 0) {
 		fprintf(stderr, "+++***==== Dual Interupt handling ====*** %d+++\n", intCount);
 		}
 	else
-		selfPointer->interruptHandler(); 
+		selfPointer->interruptHandler();
 	intCount--;
 //	fprintf(stderr, " Isr0 exit ");
 	}
@@ -535,7 +535,7 @@ void RFM69::receiveBegin() {
     writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_01); // set DIO0 to "PAYLOADREADY" in receive mode
   // fprintf(stderr, "DIO mapping set to 01 (Payload Ready)");
-  
+
   setMode(RF69_MODE_RX);
 }
 
@@ -630,7 +630,7 @@ uint8_t RFM69::readReg(uint8_t addr)
   uint8_t regval = SPI.transfer(0);
   unselect();
   return regval;
-#endif  
+#endif
 }
 
 void RFM69::writeReg(uint8_t addr, uint8_t value)
@@ -702,7 +702,7 @@ void RFM69::setHighPowerRegs(bool onOff) {
   writeReg(REG_TESTPA2, onOff ? 0x7C : 0x70);
 }
 
-// set the slave select (CS) pin 
+// set the slave select (CS) pin
 void RFM69::setCS(uint8_t newSPISlaveSelect) {
   _slaveSelectPin = newSPISlaveSelect;
   digitalWrite(_slaveSelectPin, HIGH);
@@ -719,7 +719,7 @@ void RFM69::readAllRegs()
 
   for(i = 1; i <= 0x4F; i++) {
    printf("%i - %i\n\r", i, readReg(i));
-  }  
+  }
 #else
   uint8_t regVal;
 

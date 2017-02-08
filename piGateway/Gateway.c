@@ -24,13 +24,13 @@ Modifications Needed:
 #define LOG_D(...) do { syslog(LOG_DEBUG, __VA_ARGS__); } while (0)
 #else
 #ifdef DEBUG
-#define LOG(...) do { printf(__VA_ARGS__); } while (0)
-#define LOG_E(...) do { printf(__VA_ARGS__); } while (0)
-#define LOG_D(...) do { printf(__VA_ARGS__); } while (0)
+#define LOG(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
+#define LOG_E(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
+#define LOG_D(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 #else
 #define LOG(...)
-#define LOG_E(...) do { fprintf(stderr, __VA_ARGS__); } while (0)
-#define LOG_D(...) 
+#define LOG_E(...) do { fprintf(stderr, __VA_ARGS__); fflush(stderr);  } while (0)
+#define LOG_D(...)
 #endif
 #endif
 
@@ -53,17 +53,17 @@ Modifications Needed:
 
 RFM69 *rfm69;
 
-typedef struct {		
+typedef struct {
 	unsigned long messageWatchdog;
 	unsigned long messageSent;
 	unsigned long messageReceived;
 	unsigned long ackRequested;
-	
+
 	unsigned long ackReceived;
 	unsigned long ackMissed;
-	
+
 	unsigned long ackCount;
-} 
+}
 Stats;
 Stats theStats;
 
@@ -97,19 +97,19 @@ Config theConfig;
 
 int sendMQTT = 0;
 
-typedef struct {		
-	short           nodeID; 
+typedef struct {
+	short           nodeID;
 	short			      sensorID;
-	unsigned long   var1_usl; 
-	float           var2_float; 
-	float			      var3_float;	
-} 
+	unsigned long   var1_usl;
+	float           var2_float;
+	float			      var3_float;
+}
 Payload;
 Payload theData;
 
 typedef struct {
 	short           nodeID;
-	short			      sensorID;		
+	short			      sensorID;
 	unsigned long   var1_usl;
 	float           var2_float;
 	float         	var3_float;		//
@@ -167,13 +167,13 @@ int main(int argc, char* argv[]) {
 		LOG_E("setsid failed");
 		exit(EXIT_FAILURE);
 	}
-        
+
 	/* Change the current working directory */
 	if ((chdir("/")) < 0) {
 	  LOG_E("chdir failed");
 	  exit(EXIT_FAILURE);
 	}
-        
+
 	/* Close out the standard file descriptors */
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
 	memcpy(theConfig.key, "sampleEncryptKey", 16);
 	theConfig.isRFM69HW = true;
 	theConfig.promiscuousMode = true;
-	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
+	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages
 
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
 	sprintf(subsciptionMask, "%s/%03d/#", MQTT_ROOT, theConfig.networkId);
 	LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
 	mosquitto_subscribe(m, NULL, subsciptionMask, 0);
-	
+
 	LOG("setup complete\n");
 	return run_loop(m);
 }  // end of setup
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
 /* Loop until it is explicitly halted or the network is lost, then clean up. */
 static int run_loop(struct mosquitto *m) {
 	int res;
-	long lastMess; 
+	long lastMess;
 	for (;;) {
 		res = mosquitto_loop(m, 10, 1);
 
@@ -227,12 +227,12 @@ static int run_loop(struct mosquitto *m) {
 			// reset watchdog
 			lastMess = millis();
 		}
-		
+
 		if (rfm69->receiveDone()) {
 			// record last message received time - to compute radio watchdog
 			lastMess = millis();
 			theStats.messageReceived++;
-			
+
 			// store the received data localy, so they can be overwited
 			// This will allow to send ACK immediately after
 			uint8_t data[RF69_MAX_DATA_LEN]; // recv/xmit buf, including header & crc bytes
@@ -250,7 +250,7 @@ static int run_loop(struct mosquitto *m) {
 				// but only if the Node ID is correct
 				theStats.ackRequested++;
 				rfm69->sendACK();
-				
+
 				if (theStats.ackCount++%3==0) {
 					// and also send a packet requesting an ACK (every 3rd one only)
 					// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
@@ -267,12 +267,12 @@ static int run_loop(struct mosquitto *m) {
 					}
 				}
 			}//end if radio.ACK_REQESTED
-	
+
 			LOG("[%d] to [%d] \n", theNodeID, targetID);
 
 			if (dataLength != sizeof(Payload)) {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
-				hexDump(NULL, data, dataLength, 16);		
+				hexDump(NULL, data, dataLength, 16);
 			} else {
 				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
 
@@ -298,7 +298,7 @@ static int run_loop(struct mosquitto *m) {
         }	else {
 					hexDump(NULL, data, dataLength, 16);
 				}
-			}  
+			}
 		} //end if radio.receive
 
 		if (sendMQTT == 1) {
@@ -352,7 +352,7 @@ static long millis(void) {
     return ((tv.tv_sec) * 1000 + tv.tv_usec/1000.0) + 0.5;
 	}
 
-	
+
 /* Binary Dump utility function */
 #define MAX_BLOC 16
 const unsigned char hex_asc[] = "0123456789abcdef";
@@ -363,47 +363,47 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 	unsigned char ascbuf[MAX_BLOC + 1];	// ASCII part of the data
     unsigned char *pc = (unsigned char*)addr;
 	unsigned char ch;
-	
+
 	// nothing to output
 	if (!len)
 		return;
 
 	// Limit the line length to MAX_BLOC
-	if (bloc > MAX_BLOC) 
+	if (bloc > MAX_BLOC)
 		bloc = MAX_BLOC;
-		
+
 	// Output description if given.
     if (desc != NULL)
 		LOG("%s:\n", desc);
-	
+
 	line = 0;
 	do
 		{
 		l = len - (line * bloc);
 		if (l > bloc)
 			l = bloc;
-	
+
 		for (i=0, lx = 0, la = 0; i < l; i++) {
 			ch = pc[i];
 			hexbuf[lx++] = hex_asc[((ch) & 0xF0) >> 4];
 			hexbuf[lx++] = hex_asc[((ch) & 0xF)];
 			hexbuf[lx++] = ' ';
-		
+
 			ascbuf[la++]  = (ch > 0x20 && ch < 0x7F) ? ch : '.';
 			}
-	
+
 		for (; i < bloc; i++) {
 			hexbuf[lx++] = ' ';
 			hexbuf[lx++] = ' ';
 			hexbuf[lx++] = ' ';
-		}	
+		}
 		// nul terminate both buffer
 		hexbuf[lx++] = 0;
 		ascbuf[la++] = 0;
-	
+
 		// output buffers
 		LOG("%04x %s %s\n", line * bloc, hexbuf, ascbuf);
-		
+
 		line++;
 		pc += bloc;
 		}
@@ -472,7 +472,7 @@ const struct mosquitto_message *msg) {
 	LOG("-- got message @ %s: (%d, QoS %d, %s) '%s'\n",
 		msg->topic, msg->payloadlen, msg->qos, msg->retain ? "R" : "!r",
 		msg->payload);
-		
+
 	if (strlen((const char *)msg->topic) < strlen(MQTT_ROOT) + 2 + 3 + 1) {return; }	// message is smaller than "RFM/xxx/x" so likey invalid
 
 	Payload data;
@@ -480,15 +480,15 @@ const struct mosquitto_message *msg) {
 
 	sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
 	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0 && network == theConfig.networkId) {
-		
+
 		// extract the target network and the target node from the topic
 		sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
-		
+
 		if (network == theConfig.networkId) {
 			// only process the messages to our network
-		
+
 			sscanf((const char *)msg->payload, "%ld,%f,%f", &data.var1_usl, &data.var2_float, &data.var3_float);
-			
+
 			LOG("Received message for Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 				data.nodeID,
 				data.sensorID,
@@ -529,4 +529,3 @@ static bool set_callbacks(struct mosquitto *m) {
 	mosquitto_message_callback_set(m, on_message);
 	return true;
 }
-

@@ -13,7 +13,7 @@
 
 static int named_pipe_fs;
 
-void setup_pipe() 
+void setup_pipe()
 {
   umask(0);
   if( access( NAMED_PIPE, F_OK ) == -1 ) {
@@ -27,13 +27,13 @@ void setup_pipe()
   return ;
 }
 
-void setup_dimmer() 
-{ 
+void setup_dimmer()
+{
   wiringPiSetup();
   pinMode(PWM_PIN, PWM_OUTPUT);
   pwmSetClock(40);
   pwmSetMode(PWM_MODE_MS);
-} 
+}
 
 void set_dimmer(int percentage) {
   // fprintf(stderr, "Percentage : %d\n", percentage);
@@ -43,7 +43,7 @@ void set_dimmer(int percentage) {
    pwmWrite(PWM_PIN,1024);
   } else {
     pwmWrite(PWM_PIN, (1024 - percentage * 10) ) ;
-  } 
+  }
 }
 
 int main(int argc, char*  argv[]) {
@@ -51,7 +51,7 @@ int main(int argc, char*  argv[]) {
   int retval;
   setup_pipe();
   setup_dimmer();
-  fprintf(stderr, "setup complete\n");  
+  fprintf(stderr, "setup complete\n");
   while (true) {
      retval = read(named_pipe_fs, &buffer, BUFFER_SIZE -1);
      if (retval <= 0) {
@@ -61,8 +61,7 @@ int main(int argc, char*  argv[]) {
        set_dimmer(atoi(buffer));
        // fprintf(stderr, buffer);
        // fprintf(stderr, "\n\n");
-     } 
+     }
   }
-  
-}
 
+}

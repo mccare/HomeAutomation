@@ -5,7 +5,7 @@
  Date: 2014/04/13
  File: SensorNode.ino
  This sketch is for a wired Arduino w/ RFM69 wireless transceiver
- Sends sensor data (temp/humidity) back  to gateway.  
+ Sends sensor data (temp/humidity) back  to gateway.
  Receive sensor messages from the gateway
  */
 
@@ -18,9 +18,9 @@
  4 = 1242 = human motion present or not
  5 = 1252 = barking or not
  6 = 1262, 1263 = temperature, humidity
- 
+
  */
-  
+
 
 
 //general --------------------------------
@@ -66,7 +66,7 @@ RFM69 radio;
 boolean debug = 0;
 
 //struct for wireless data transmission
-typedef struct {		
+typedef struct {
   int       nodeID; 		//node ID (1xx, 2xx, 3xx);  1xx = basement, 2xx = main floor, 3xx = outside
   int       deviceID;		//sensor ID (2, 3, 4, 5)
   unsigned long   var1_usl; 		//uptime in ms
@@ -109,7 +109,7 @@ void setup()
   DEBUGLN1(buff);
   theData.nodeID = NODEID;  //this node id should be the same for all devices in this node
   //end RFM--------------------------------------------
-  
+
   pinMode(led, OUTPUT);
   radio.promiscuous(false);
   update_dimmer(0);
@@ -120,13 +120,13 @@ long blinkNext = 0;
 bool high = false;
 int dimmer_percentage = 0; // 0-100, where 100 is "full on"
 
-// PWM signal goes from 255 (full voltage) to 0 (no voltage). The Meanwell LCM 40 will display full lights for "no voltage" and shuts off with "full voltage", 
+// PWM signal goes from 255 (full voltage) to 0 (no voltage). The Meanwell LCM 40 will display full lights for "no voltage" and shuts off with "full voltage",
 // so we have to invert the pwm signal, 255 = 0%, 0 = 100% light
 void update_dimmer(int new_value) {
-  dimmer_percentage = new_value; 
-  int dimmer_pwm = (100 - dimmer_percentage) * 255 / 100; // normaly times 2.55 but since it is int, we'll do times 25 and then divde by 10. 
+  dimmer_percentage = new_value;
+  int dimmer_pwm = (100 - dimmer_percentage) * 255 / 100; // normaly times 2.55 but since it is int, we'll do times 25 and then divde by 10.
   // for the sides we us full on or full off
-  if (dimmer_pwm > 240) 
+  if (dimmer_pwm > 240)
     dimmer_pwm = 255;
   if (dimmer_pwm < 20)
     dimmer_pwm = 0;
@@ -139,14 +139,14 @@ void loop()
   if (millis() > blinkNext)
   {
       if (high) {
-       digitalWrite(led, LOW);   
+       digitalWrite(led, LOW);
       } else {
         digitalWrite(led, HIGH);
       }
       high = ! high;
       blinkNext = millis() + blinkInterval;
   }
-  
+
   //check for any received packets
   if (radio.receiveDone())
   {
@@ -164,7 +164,7 @@ void loop()
       theData = *(Payload*)radio.DATA; //assume radio.DATA actually contains our struct and not something else
 
       DEBUG1("Received Device ID = ");
-      DEBUGLN1(theData.deviceID);  
+      DEBUGLN1(theData.deviceID);
       DEBUG1 ("    Time = ");
       DEBUGLN1 (theData.var1_usl);
       DEBUG1 ("    var2_float ");
@@ -172,7 +172,7 @@ void loop()
       update_dimmer((int) theData.var2_float);
       DEBUG1 ("    var3_float ");
       DEBUGLN1 (theData.var3_float);
-      
+
     }
     else {
       Serial.print("Invalid data ");
@@ -191,7 +191,7 @@ void loop()
     }
     DEBUGLN1();
   }
-  
+
   if (false && frameSent % 20 == 0 ) {
     //send data
     theData.deviceID = 1;
@@ -218,7 +218,7 @@ void loop()
       DEBUGLN1(ackReceived);
     }
   } else { statOut = 0; }
-  
+
   unsigned long time_passed = 0;
 
 
@@ -236,13 +236,5 @@ void loop()
       ackMissed++;
     }
   }
-  
+
 }//end loop
-
-
-
-
-
-
-
-

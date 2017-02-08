@@ -2,12 +2,12 @@
  Based on work from author:  Eric Tsai
  Gateway ncorporating both the RFM69 and the ethernet part
  Revised by Alexandre Bouillot
- 
+
  License:  CC-BY-SA, https://creativecommons.org/licenses/by-sa/2.0/
  Date:  10-23-2014
  File: Gateway.ino
  This sketch receives RFM wireless data and forwards it to Mosquitto relay
- 
+
  Modifications Needed:
  1)  Update encryption string "ENCRYPTKEY"
  2)  Adjust SS - Chip Select - for RFM69
@@ -59,9 +59,9 @@ bool promiscuousMode = false; //set to 'true' to sniff all packets on the same n
 #include <Ethernet.h>
 
 //Ethernet
-byte mac[]    = {  
+byte mac[]    = {
   0x90, 0xA2, 0xDA, 0x0D, 0x11, 0x11 };
-byte server[] = { 
+byte server[] = {
   192, 168, 0, 50 };
 
 IPAddress ip(192,168,0,61);
@@ -82,30 +82,30 @@ void MQTTSendFloat(PubSubClient* _client, int node, int sensor, int var, float v
 //use LED for indicating MQTT connection status.
 int led = 13;
 
-typedef struct {		
-  int                   nodeID; 
+typedef struct {
+  int                   nodeID;
   int			sensorID;
-  unsigned long         var1_usl; 
-  float                 var2_float; 
-  float			var3_float;	
-} 
+  unsigned long         var1_usl;
+  float                 var2_float;
+  float			var3_float;
+}
 Payload;
 Payload theData;
 
-volatile struct 
+volatile struct
 {
   int                   nodeID;
-  int			sensorID;		
+  int			sensorID;
   unsigned long         var1_usl;
   float                 var2_float;
   float			var3_float;		//
   int                   var4_int;
-} 
+}
 SensorNode;
 
-void setup() 
+void setup()
 {
-  Serial.begin(SERIAL_BAUD); 
+  Serial.begin(SERIAL_BAUD);
 
   //Ethernet -------------------------
   //Ethernet.begin(mac, ip);
@@ -122,7 +122,7 @@ void setup()
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
     // print the value of each byte of the IP address:
     DEBUG2(Ethernet.localIP()[thisByte], DEC);
-    DEBUG1("."); 
+    DEBUG1(".");
   }
   DEBUGLN1();
 
@@ -156,7 +156,7 @@ void loop() {
   // Here is a temporized call to it on a regular interval
   // This need to be as fast as the fastest sensor received
   if (millis() > watchdog) {
-    //    Serial.print("loop "); 
+    //    Serial.print("loop ");
     //    Serial.println(millis());
     watchdog += watchdogInterval;
     //client.loop needs to run every iteration.  Previous version did not.  Big opps.
@@ -188,7 +188,7 @@ void loop() {
       SensorNode.var4_int = radio.RSSI;
 
       DEBUG1("Received Device ID = ");
-      DEBUGLN1(SensorNode.sensorID);  
+      DEBUGLN1(SensorNode.sensorID);
       DEBUG1 ("    Time = ");
       DEBUGLN1 (SensorNode.var1_usl);
       DEBUG1 ("    var2_float ");
@@ -235,13 +235,13 @@ void loop() {
         digitalWrite(led, HIGH);
       }
       client.publish("outTopic","hello world");
-    } 
+    }
 
     digitalWrite(led, HIGH);
 
     int varnum;
     char buff_topic[6];
-    char buff_message[12];      
+    char buff_message[12];
 
     /*
       //send var1_usl
@@ -304,8 +304,3 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
   DEBUGLN1(F("Mosquitto Callback"));
 }
-
-
-
-
-

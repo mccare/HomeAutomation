@@ -1,5 +1,5 @@
 /*
-RFM69 Sender Reciever 
+RFM69 Sender Reciever
 adapted from Gateway.c from Alexandre Bouillot by Christian van der Leeden
 
 License:  CC-BY-SA, https://creativecommons.org/licenses/by-sa/2.0/
@@ -7,12 +7,12 @@ Date:  2015-12-03
 File: SenderReciever.c
 
 SETUP and usage:
-Define the RFM Frequency of the chip used, your network id (pick one) and the encryption key 
+Define the RFM Frequency of the chip used, your network id (pick one) and the encryption key
 see readme for more info
 */
 
 //general --------------------------------
-#define LOG(...) do { printf(__VA_ARGS__); } while (0)
+#define LOG(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 
 /* CONFIGURATION, please adapt */
 // Frequency of your RFM69 chip
@@ -60,13 +60,13 @@ typedef struct {
 Config;
 Config theConfig;
 
-typedef struct {		
-	short           nodeID; 
+typedef struct {
+	short           nodeID;
 	short			      sensorID;
-	unsigned long   var1_usl; 
-	float           var2_float; 
-	float           var3_float;	
-} 
+	unsigned long   var1_usl;
+	float           var2_float;
+	float           var3_float;
+}
 Payload;
 Payload theData;
 
@@ -139,11 +139,11 @@ int main(int argc, char* argv[]) {
   } else {
     LOG("RECEIVING: NETWORK %d NODE_ID %d FREQUENCY %d \n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
   }
-	
+
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
 	initRfm(rfm69);
-	
+
 	LOG("setup complete\n");
 	return run_loop();
 }
@@ -173,12 +173,12 @@ static int run_loop() {
 				// but only if the Node ID is correct
 				rfm69->sendACK();
 			}//end if radio.ACK_REQESTED
-	
+
 			LOG("[%d] to [%d] ", theNodeID, targetID);
 
 			if (dataLength != sizeof(Payload)) {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
-				hexDump(NULL, data, dataLength, 16);		
+				hexDump(NULL, data, dataLength, 16);
 			} else {
         struct device_reading device_data;
 				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
@@ -194,14 +194,14 @@ static int run_loop() {
           device_data.device_id = theData.sensorID;
           device_data.value = theData.var2_float;
           write_to_pipe(device_data);
-			}  
+			}
 		} //end if radio.receive
-		
+
     if (sender) {
       struct device_reading reading;
       reading = read_from_pipe(5000);
       if (reading.device_id > 0) {
-        LOG("Sending test message from device_id %i value %f \n", reading.device_id, reading.value); 
+        LOG("Sending test message from device_id %i value %f \n", reading.device_id, reading.value);
   			send_message(reading);
   		} else {
         counter += 1;
@@ -209,8 +209,8 @@ static int run_loop() {
        //   LOG("Nothing on the named pipe (FIFO)...\n");
         }
   		}
-    } 
-		
+    }
+
 	}
 
 }
@@ -232,7 +232,7 @@ static void die(const char *msg) {
 }
 
 
-	
+
 /* Binary Dump utility function */
 #define MAX_BLOC 16
 const unsigned char hex_asc[] = "0123456789abcdef";
@@ -243,47 +243,47 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 	unsigned char ascbuf[MAX_BLOC + 1];	// ASCII part of the data
     unsigned char *pc = (unsigned char*)addr;
 	unsigned char ch;
-	
+
 	// nothing to output
 	if (!len)
 		return;
 
 	// Limit the line length to MAX_BLOC
-	if (bloc > MAX_BLOC) 
+	if (bloc > MAX_BLOC)
 		bloc = MAX_BLOC;
-		
+
 	// Output description if given.
     if (desc != NULL)
 		LOG("%s:\n", desc);
-	
+
 	line = 0;
 	do
 		{
 		l = len - (line * bloc);
 		if (l > bloc)
 			l = bloc;
-	
+
 		for (i=0, lx = 0, la = 0; i < l; i++) {
 			ch = pc[i];
 			hexbuf[lx++] = hex_asc[((ch) & 0xF0) >> 4];
 			hexbuf[lx++] = hex_asc[((ch) & 0xF)];
 			hexbuf[lx++] = ' ';
-		
+
 			ascbuf[la++]  = (ch > 0x20 && ch < 0x7F) ? ch : '.';
 			}
-	
+
 		for (; i < bloc; i++) {
 			hexbuf[lx++] = ' ';
 			hexbuf[lx++] = ' ';
 			hexbuf[lx++] = ' ';
-		}	
+		}
 		// nul terminate both buffer
 		hexbuf[lx++] = 0;
 		ascbuf[la++] = 0;
-	
+
 		// output buffers
 		LOG("%04x %s %s\n", line * bloc, hexbuf, ascbuf);
-		
+
 		line++;
 		pc += bloc;
 		}
@@ -301,7 +301,7 @@ static void send_message(struct device_reading reading) {
 	data.var1_usl = current_time_millis();
 	data.var2_float = reading.value;
 	data.var3_float = 0;
-	
+
 	LOG("Will Send message to Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 		data.nodeID,
 		data.sensorID,
@@ -317,4 +317,3 @@ static void send_message(struct device_reading reading) {
 		LOG("\n\nERROR: essage sent to node %d NAK \n\n", data.nodeID);
 	}
 }
-

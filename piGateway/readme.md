@@ -21,17 +21,17 @@ sudo ./SenderReceiver -s 10 -n 11
 
 on receiving node: (will listen as node_id 11)
 ```
-sudo ./SenderReceiver -r -n 11 
+sudo ./SenderReceiver -r -n 11
 ```
 
-To send packets please echo 
+To send packets please echo
 ```
 echo "DEVICE_ID:10:VALUE:10.0" > /tmp/SenderReceiverIO.named_pipe
 ```
 
 
 ### Sender mode:
-  
+
 when run with the "-s" flag (sender) a named pipe in /tmp directory will be created
 write DEVICE_ID:<int>:VALUE:<float>  to the named pipe and a message will be sent out
 
@@ -42,7 +42,7 @@ The receiver mode will receive packages via RFM69 and post the value of the valu
 /tmp/SenderReceiverIO_device_%d.named_pipe
 ```
 The value will be posted there. Look at pwm.c in piSensorNode.
- 
+
 
 # Gateway
 
@@ -135,7 +135,7 @@ sudo is required as some of the WiringPi library need it
 ## Daemon
 The Gateway can also be run as a daemon
 
-To build it you can use 
+To build it you can use
 ```
 make Gatewayd
 ```
@@ -153,12 +153,12 @@ sudo make uninstall
 
 ##MQTT Config with Openhab
 
-* a device will publish four values via mosquitto 
- * 1: the time of the measurement 
- * 2: the value as float from the measurement 
- * 3: the battery status 
+* a device will publish four values via mosquitto
+ * 1: the time of the measurement
+ * 2: the value as float from the measurement
+ * 3: the battery status
  * 4: RSSI (the sender strength)
- 
+
 * the topic is is sensor/<node_id>/<device_id>/<value number>
 
 Sample for a temperature sensor in OH2:
@@ -172,5 +172,3 @@ item:
 ```
 Number Temperature_Corridor       "Corridor Temperature"    (Temperatur) {mqtt="<[broker:sensor/100/10/2:state:default]"}
 ```
-
-

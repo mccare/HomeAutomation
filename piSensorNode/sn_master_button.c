@@ -18,7 +18,7 @@ void master_button_pressed();
 #define PIN_NUMBER 2
 
 int main(int argc, char **argv) {
-  
+
   wiringPiSetup();
   wiringPiISR(PIN_NUMBER, INT_EDGE_RISING, master_button_pressed);
   for(;;) {
@@ -34,7 +34,7 @@ void setup() {
   }
 }
 
-void master_button_pressed() { 
+void master_button_pressed() {
 	fprintf(stderr,  " MASTER BUTTON PRESSED DETECTED! \n");
   int file ;
   char buffer[30];
